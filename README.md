@@ -4,6 +4,8 @@
 
 A revolutionary AI-powered research paper analysis platform that transforms how researchers interact with academic literature. Upload multiple papers, ask intelligent questions, and get comprehensive answers with proper citations and real-time updates.
 
+> **⚠️ Note: This is a frontend prototype/mockup demonstrating the user experience. All AI responses, paper processing, and backend functionality are simulated using mock data.**
+
 ![Landing Page](screenshots/01-landing-page.png)
 *Clean, modern interface for uploading research papers with drag-and-drop functionality*
 
@@ -66,6 +68,7 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 - **Routing**: React Router DOM
 - **Icons**: Lucide React
 - **Build Tool**: Vite
+- **Data**: Mock data simulation (no backend)
 
 ## 🚀 **Getting Started**
 
@@ -161,7 +164,7 @@ This project was developed for **HackWithHyderabad 2025**, focusing on:
 - **AI Integration**: Smart responses with proper citations
 - **Real-time Features**: Live updates and trend monitoring
 
-## 🔮 **Future Enhancements**
+## 🔮 **Planned Development (Not Yet Implemented)**
 
 ### **Phase 1: Backend Integration**
 - [ ] Real PDF processing and text extraction
@@ -181,14 +184,6 @@ This project was developed for **HackWithHyderabad 2025**, focusing on:
 - [ ] Advanced analytics dashboard
 - [ ] API for third-party integrations
 
-## 🤝 **Contributing**
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
 
 ## 📄 **License**
 
@@ -196,8 +191,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 **Team**
 
-- **Uday Kumar** - Full Stack Developer & UI/UX Designer
-- **HackWithHyderabad 2025** - Hackathon Platform
+- **H. UdayKumar** - Lead Developer & Project Manager
+- **P. Venkata Teja** - Frontend Developer ([GitHub](https://github.com/VenkataTejaP9587)) | venkatatejapatnam@gmail.com
+- **S. Sairam** - UI/UX Designer ([GitHub](https://github.com/sairamshivva)) | sairamshivva@gmail.com
+- **K. Bhanu** - Research & Support ([GitHub](https://github.com/BUNNY5S)) | bhanubunny2030@gmail.com
+- **M. Madhan** - Research & Support | mekalamadhan8@gmail.com
 
 ## 📞 **Contact**
 
@@ -206,6 +204,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with ❤️ for the research community**
+**Built for the research community**
 
-*Transforming academic research through intelligent AI assistance*
+*Frontend prototype demonstrating intelligent AI assistance for academic research*
