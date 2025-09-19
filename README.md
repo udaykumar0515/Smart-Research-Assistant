@@ -53,19 +53,20 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 
 ## 🛠️ **Technology Stack**
 
-- **Frontend**: React 18 + TypeScript
+- **Frontend Framework**: React 18 + TypeScript
 - **Styling**: Tailwind CSS + Framer Motion
 - **State Management**: React Context API
 - **Routing**: React Router DOM
 - **Icons**: Lucide React
 - **Build Tool**: Vite
+- **Package Manager**: npm
 - **Data**: Mock data simulation (no backend)
 
 ## 🚀 **Getting Started**
 
 ### **Prerequisites**
-- Node.js 16+ 
-- npm or yarn
+- Node.js 16+ (for running the development server)
+- npm (included with Node.js)
 
 ### **Installation**
 
@@ -120,17 +121,27 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 ![Landing Page](screenshots/01-landing-page.png)
 **Landing Page** - Clean, modern interface with drag-and-drop upload functionality and professional navigation bar
 
+---
+
 ![Dashboard](screenshots/02-dashboard.png)
 **Dashboard** - Professional grid layout showing all uploaded papers with selection states and navigation options
+
+---
 
 ![Chat Interface](screenshots/03-chat-interface.png)
 **Chat Interface** - Interactive chat showing user questions, AI responses with citation chips, and paper metadata
 
+---
+
 ![Multi-Paper Mode](screenshots/04-multi-paper-mode.png)
 **Multi-Paper Mode** - Paper selector with checkboxes, selected papers list, and comparative chat responses
 
+---
+
 ![Usage Analytics](screenshots/05-usage-analytics.png)
 **Usage Analytics** - Clean analytics dashboard showing credit usage, transaction logs, and purchase options
+
+---
 
 ![Updates Panel](screenshots/06-updates-panel.png)
 **Updates Panel** - Real-time updates section showing new research, summarization buttons, and credit costs
