@@ -6,9 +6,6 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 
 > **⚠️ Note: This is a frontend prototype/mockup demonstrating the user experience. All AI responses, paper processing, and backend functionality are simulated using mock data.**
 
-![Landing Page](screenshots/01-landing-page.png)
-*Clean, modern interface for uploading research papers with drag-and-drop functionality*
-
 ## 🚀 **What Makes This Special?**
 
 ### **Multi-Paper Intelligence**
@@ -27,9 +24,6 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 - **Context-Aware Responses**: AI understands which papers you're discussing
 - **Credit System**: Transparent usage tracking with visual feedback
 - **Citation Modals**: Click any citation to see detailed snippets
-
-![Dashboard View](screenshots/02-dashboard.png)
-*Professional dashboard showing all uploaded papers with easy navigation*
 
 ## 🎯 **Key Features**
 
@@ -56,9 +50,6 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 - Detailed usage logs
 - Cost transparency
 - Purchase credits
-
-![Chat Interface](screenshots/03-chat-interface.png)
-*Interactive chat interface with citation chips and multi-paper support*
 
 ## 🛠️ **Technology Stack**
 
@@ -100,9 +91,6 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
    http://localhost:5173
    ```
 
-![Multi-Paper Mode](screenshots/04-multi-paper-mode.png)
-*Multi-paper analysis mode allowing comparison across multiple research papers*
-
 ## 📱 **How to Use**
 
 ### **1. Upload Papers**
@@ -125,34 +113,27 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 - Click "Summarize update" for AI summaries
 - Track your credit usage in real-time
 
-![Usage Analytics](screenshots/05-usage-analytics.png)
-*Comprehensive usage tracking with credit management and transaction history*
-
 ## 🎨 **Screenshots**
 
-### **Screenshot 1: Landing Page** (`01-landing-page.png`)
-**What to capture**: Full landing page showing the hero section with upload area
-**Description**: Clean, modern interface with drag-and-drop upload functionality and professional navigation bar
+*Visual demonstration of the Smart Research Assistant interface*
 
-### **Screenshot 2: Dashboard** (`02-dashboard.png`)
-**What to capture**: Dashboard view with multiple uploaded papers
-**Description**: Professional grid layout showing all uploaded papers with selection states and navigation options
+![Landing Page](screenshots/01-landing-page.png)
+**Landing Page** - Clean, modern interface with drag-and-drop upload functionality and professional navigation bar
 
-### **Screenshot 3: Chat Interface** (`03-chat-interface.png`)
-**What to capture**: Paper detail page with chat messages and citations
-**Description**: Interactive chat showing user questions, AI responses with citation chips, and paper metadata
+![Dashboard](screenshots/02-dashboard.png)
+**Dashboard** - Professional grid layout showing all uploaded papers with selection states and navigation options
 
-### **Screenshot 4: Multi-Paper Mode** (`04-multi-paper-mode.png`)
-**What to capture**: Multi-paper selection interface with comparative analysis
-**Description**: Shows paper selector with checkboxes, selected papers list, and comparative chat responses
+![Chat Interface](screenshots/03-chat-interface.png)
+**Chat Interface** - Interactive chat showing user questions, AI responses with citation chips, and paper metadata
 
-### **Screenshot 5: Usage Analytics** (`05-usage-analytics.png`)
-**What to capture**: Usage page with credit balance and transaction history
-**Description**: Clean analytics dashboard showing credit usage, transaction logs, and purchase options
+![Multi-Paper Mode](screenshots/04-multi-paper-mode.png)
+**Multi-Paper Mode** - Paper selector with checkboxes, selected papers list, and comparative chat responses
 
-### **Screenshot 6: Updates Panel** (`06-updates-panel.png`)
-**What to capture**: Updates panel with news items and summarization options
-**Description**: Real-time updates section showing new research, summarization buttons, and credit costs
+![Usage Analytics](screenshots/05-usage-analytics.png)
+**Usage Analytics** - Clean analytics dashboard showing credit usage, transaction logs, and purchase options
+
+![Updates Panel](screenshots/06-updates-panel.png)
+**Updates Panel** - Real-time updates section showing new research, summarization buttons, and credit costs
 
 ## 🏆 **HackWithHyderabad Hackathon**
 

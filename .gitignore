@@ -51,10 +51,9 @@ coverage/
 ~$*.pptx
 ~$*.ppt
 
-# Screenshots (will be added manually)
-screenshots/*.png
-screenshots/*.jpg
-screenshots/*.jpeg
+# Screenshots - only exclude temporary ones
+screenshots/temp_*
+screenshots/*.tmp
 
 # Test files
 test.html
