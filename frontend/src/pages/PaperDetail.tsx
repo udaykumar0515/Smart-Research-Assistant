@@ -17,18 +17,20 @@ export function PaperDetail() {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [showPaperSelector, setShowPaperSelector] = useState(false);
   const [multiPaperMode, setMultiPaperMode] = useState(false);
+  const [currentPaperId, setCurrentPaperId] = useState<string | null>(null);
 
   const paper = state.papers.find(p => p.paper_id === paperId);
   const selectedPapers = state.papers.filter(p => state.selectedPaperIds.includes(p.paper_id));
 
   useEffect(() => {
-    if (paper) {
+    if (paper && paperId !== currentPaperId) {
+      // Only clear messages when switching to a different paper
+      setMessages([]);
+      setCurrentPaperId(paperId || null);
       dispatch({ type: 'SET_CURRENT_PAPER', payload: paper });
       dispatch({ type: 'SET_SELECTED_PAPER', payload: paperId || null });
-      setMessages([]);
-      dispatch({ type: 'CLEAR_CHAT_MESSAGES', payload: undefined });
     }
-  }, [paper, paperId, dispatch]);
+  }, [paper, paperId, currentPaperId, dispatch]);
 
   // Close paper selector when clicking outside
   useEffect(() => {
