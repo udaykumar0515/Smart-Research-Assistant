@@ -186,7 +186,7 @@ This project is licensed under the MIT License
 - **P. Venkata Teja** - Frontend Developer ([GitHub](https://github.com/VenkataTejaP9587)) | venkatatejapatnam@gmail.com
 - **S. Sairam** - UI/UX Designer ([GitHub](https://github.com/sairamshivva)) | sairamshivva@gmail.com
 - **K. Bhanu** - Research & Support ([GitHub](https://github.com/BUNNY5S)) | bhanubunny2030@gmail.com
-- **M. Madhan** - Research & Support | mekalamadhan8@gmail.com
+- **M. Madhan** - Research & Support ([GitHub](https://github.com/mekalamadhan8-bit))| mekalamadhan8@gmail.com
 
 ## 📞 **Contact**
 
