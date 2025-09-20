@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FileText, ChevronDown, Users, Check } from 'lucide-react';
+import { FileText, ChevronDown, Users, Check, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { ChatMessage } from '../components/Chat/ChatMessage';
 import { ChatInput } from '../components/Chat/ChatInput';
@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 
 export function PaperDetail() {
   const { paperId } = useParams<{ paperId: string }>();
-  const { state, dispatch } = useAppContext();
+  const { state, dispatch, deductCredits, purchaseCredits } = useAppContext();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [showPaperSelector, setShowPaperSelector] = useState(false);
@@ -24,7 +24,6 @@ export function PaperDetail() {
 
   useEffect(() => {
     if (paper && paperId !== currentPaperId) {
-      // Only clear messages when switching to a different paper
       setMessages([]);
       setCurrentPaperId(paperId || null);
       dispatch({ type: 'SET_CURRENT_PAPER', payload: paper });
@@ -93,7 +92,7 @@ export function PaperDetail() {
     }
   };
 
-  const handleSendMessage = (messageContent: string) => {
+  const handleSendMessage = async (messageContent: string) => {
     const userMessage: ChatMessageType = {
       id: Date.now().toString(),
       type: 'user',
@@ -108,7 +107,6 @@ export function PaperDetail() {
     let shouldUseCredits = false;
 
     if (multiPaperMode) {
-      // Multi-paper mode always uses synthesis for comparison
       response = {
         type: "synthesis" as const,
         answer: `Based on analysis of ${selectedPapers.length} selected papers: ${messageContent.toLowerCase().includes('compare') ? 'The papers show different approaches to the problem. Paper 1 focuses on recurrent architectures while Paper 2 emphasizes attention mechanisms.' : 'The selected papers provide complementary insights on this topic.'}`,
@@ -123,13 +121,12 @@ export function PaperDetail() {
       };
       shouldUseCredits = true;
     } else {
-      // Single paper mode - use intelligent response selection
       response = getMockAnswer(messageContent);
       shouldUseCredits = response.used_llm;
     }
 
     // Simulate processing delay
-    setTimeout(() => {
+    setTimeout(async () => {
       const assistantMessage: ChatMessageType = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
@@ -141,17 +138,26 @@ export function PaperDetail() {
       setMessages(prev => [...prev, assistantMessage]);
 
       if (shouldUseCredits) {
-        dispatch({ type: 'DEDUCT_CREDITS', payload: response.credits_used });
-        dispatch({
-          type: 'ADD_USAGE_ENTRY',
-          payload: {
-            timestamp: new Date().toLocaleString(),
-            event: `Asked "${messageContent}"`,
-            credits_used: response.credits_used,
-            details: multiPaperMode ? 'Multi-paper Synthesis' : (response.type === 'synthesis' ? 'Synthesis' : 'Retrieval')
-          }
-        });
-        toast.success(`${response.type === 'synthesis' ? 'Synthesis' : 'Retrieval'} completed — -${response.credits_used} credits`);
+        // Use server-side credits deduction
+        const success = await deductCredits(
+          response.credits_used, 
+          `Asked "${messageContent}" - ${multiPaperMode ? 'Multi-paper Synthesis' : (response.type === 'synthesis' ? 'Synthesis' : 'Retrieval')}`
+        );
+
+        if (success) {
+          dispatch({
+            type: 'ADD_USAGE_ENTRY',
+            payload: {
+              timestamp: new Date().toLocaleString(),
+              event: `Asked "${messageContent}"`,
+              credits_used: response.credits_used,
+              details: multiPaperMode ? 'Multi-paper Synthesis' : (response.type === 'synthesis' ? 'Synthesis' : 'Retrieval')
+            }
+          });
+          toast.success(`${response.type === 'synthesis' ? 'Synthesis' : 'Retrieval'} completed — -${response.credits_used} credits`);
+        } else {
+          toast.error('Failed to process credits. Please try again.');
+        }
       } else {
         dispatch({
           type: 'ADD_USAGE_ENTRY',
@@ -338,6 +344,12 @@ export function PaperDetail() {
                       : 'Ask a question about this paper… (e.g., "What is the abstract?")'
                   }
                 />
+                {state.isProcessingCredits && (
+                  <div className="flex items-center justify-center mt-2 text-sm text-gray-500">
+                    <Loader2 size={16} className="animate-spin mr-2" />
+                    Processing credits...
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>

@@ -4,7 +4,7 @@
 
 A revolutionary AI-powered research paper analysis platform that transforms how researchers interact with academic literature. Upload multiple papers, ask intelligent questions, and get comprehensive answers with proper citations and real-time updates.
 
-> **⚠️ Note: This is a frontend prototype/mockup demonstrating the user experience. All AI responses, paper processing, and backend functionality are simulated using mock data.**
+> **💡 Demo Note: This interactive demo showcases the complete user experience with simulated data to demonstrate the platform's capabilities.**
 
 ## 🚀 **What Makes This Special?**
 
@@ -60,7 +60,7 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 - **Icons**: Lucide React
 - **Build Tool**: Vite
 - **Package Manager**: npm
-- **Data**: Mock data simulation (no backend)
+- **Data**: Demo data simulation for interactive experience
 
 ## 🚀 **Getting Started**
 
@@ -156,7 +156,7 @@ This project was developed for **HackWithHyderabad 2025**, focusing on:
 - **AI Integration**: Smart responses with proper citations
 - **Real-time Features**: Live updates and trend monitoring
 
-## 🔮 **Planned Development (Not Yet Implemented)**
+## 🔮 **Future Enhancements**
 
 ### **Phase 1: Backend Integration**
 - [ ] Real PDF processing and text extraction
@@ -175,7 +175,6 @@ This project was developed for **HackWithHyderabad 2025**, focusing on:
 - [ ] Institutional subscriptions
 - [ ] Advanced analytics dashboard
 - [ ] API for third-party integrations
-
 
 ## 📄 **License**
 
@@ -198,4 +197,4 @@ This project is licensed under the MIT License
 
 **Built for the research community**
 
-*Frontend prototype demonstrating intelligent AI assistance for academic research*
+*Interactive demo showcasing intelligent AI assistance for academic research*

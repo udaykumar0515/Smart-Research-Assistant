@@ -1,21 +1,36 @@
 import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useState } from 'react';
+import toast from 'react-hot-toast';
 
 export function Usage() {
-  const { state, dispatch } = useAppContext();
+  const { state, dispatch, purchaseCredits } = useAppContext();
+  const [isPurchasing, setIsPurchasing] = useState(false);
 
-  const handleBuyCredits = () => {
-    dispatch({ type: 'SET_CREDITS', payload: state.credits + 10 });
-    dispatch({
-      type: 'ADD_USAGE_ENTRY',
-      payload: {
-        timestamp: new Date().toLocaleString(),
-        event: 'Buy credits (mock)',
-        credits_used: -10,
-        details: 'Added 10 credits'
+  const handleBuyCredits = async () => {
+    setIsPurchasing(true);
+    try {
+      const success = await purchaseCredits(10);
+      if (success) {
+        dispatch({
+          type: 'ADD_USAGE_ENTRY',
+          payload: {
+            timestamp: new Date().toLocaleString(),
+            event: 'Buy credits (mock)',
+            credits_used: -10,
+            details: 'Added 10 credits'
+          }
+        });
+        toast.success('Successfully purchased 10 credits!');
+      } else {
+        toast.error('Failed to purchase credits. Please try again.');
       }
-    });
+    } catch (error) {
+      toast.error('An error occurred while purchasing credits.');
+    } finally {
+      setIsPurchasing(false);
+    }
   };
 
   return (
@@ -33,13 +48,28 @@ export function Usage() {
             </div>
             <motion.button
               onClick={handleBuyCredits}
-              className="bg-[#1ABC9C] text-white px-6 py-3 rounded-lg hover:bg-[#17a085] transition-colors flex items-center space-x-2 mx-auto shadow-sm hover:shadow-md"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              disabled={isPurchasing || state.isProcessingCredits}
+              className="bg-[#1ABC9C] text-white px-6 py-3 rounded-lg hover:bg-[#17a085] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2 mx-auto shadow-sm hover:shadow-md"
+              whileHover={{ scale: isPurchasing ? 1 : 1.05 }}
+              whileTap={{ scale: isPurchasing ? 1 : 0.95 }}
             >
-              <Plus size={20} />
-              <span>Buy credits</span>
+              {isPurchasing ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <Plus size={20} />
+                  <span>Buy credits</span>
+                </>
+              )}
             </motion.button>
+            {state.lastTransactionId && (
+              <p className="text-xs text-gray-500 mt-2">
+                Last transaction: {state.lastTransactionId}
+              </p>
+            )}
           </div>
 
           {/* Usage Table */}

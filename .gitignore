@@ -47,7 +47,10 @@ coverage/
 *.tmp
 *.temp
 
-# PowerPoint temporary files
+# PowerPoint and PDF files
+*.pptx
+*.ppt
+*.pdf
 ~$*.pptx
 ~$*.ppt
 

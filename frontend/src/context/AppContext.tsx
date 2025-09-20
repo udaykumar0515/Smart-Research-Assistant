@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import { Paper, ChatMessage, UsageEntry, NewsItem } from '../types';
 import { initialUsageEntries } from '../data/mockData';
+import { creditsService } from '../services/creditsService';
 
 interface AppState {
   credits: number;
@@ -10,11 +11,15 @@ interface AppState {
   selectedPaperIds: string[];
   chatMessages: ChatMessage[];
   usageEntries: UsageEntry[];
+  isProcessingCredits: boolean;
+  lastTransactionId: string | null;
 }
 
 interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
+  deductCredits: (amount: number, reason: string) => Promise<boolean>;
+  purchaseCredits: (amount: number) => Promise<boolean>;
 }
 
 type AppAction =
@@ -29,16 +34,20 @@ type AppAction =
   | { type: 'CLEAR_CHAT_MESSAGES'; payload: void }
   | { type: 'ADD_USAGE_ENTRY'; payload: UsageEntry }
   | { type: 'UPDATE_PAPER_UPDATES'; payload: { paperId: string; updates: NewsItem[] } }
-  | { type: 'MARK_UPDATE_SUMMARIZED'; payload: { paperId: string; updateId: string; summary: string } };
+  | { type: 'MARK_UPDATE_SUMMARIZED'; payload: { paperId: string; updateId: string; summary: string } }
+  | { type: 'SET_PROCESSING_CREDITS'; payload: boolean }
+  | { type: 'SET_LAST_TRANSACTION_ID'; payload: string | null };
 
 const initialState: AppState = {
-  credits: 18,
+  credits: parseInt(localStorage.getItem('smart-research-credits') || '18', 10),
   papers: [],
   currentPaper: null,
   selectedPaperId: null,
   selectedPaperIds: [],
   chatMessages: [],
-  usageEntries: initialUsageEntries
+  usageEntries: initialUsageEntries,
+  isProcessingCredits: false,
+  lastTransactionId: null
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -114,6 +123,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
             }
           : state.currentPaper
       };
+    case 'SET_PROCESSING_CREDITS':
+      return { ...state, isProcessingCredits: action.payload };
+    case 'SET_LAST_TRANSACTION_ID':
+      return { ...state, lastTransactionId: action.payload };
     default:
       return state;
   }
@@ -122,8 +135,52 @@ function appReducer(state: AppState, action: AppAction): AppState {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
+  const deductCredits = async (amount: number, reason: string): Promise<boolean> => {
+    try {
+      dispatch({ type: 'SET_PROCESSING_CREDITS', payload: true });
+      
+      const response = await creditsService.deductCredits(amount, reason);
+      
+      if (response.success) {
+        dispatch({ type: 'SET_CREDITS', payload: response.newBalance });
+        dispatch({ type: 'SET_LAST_TRANSACTION_ID', payload: response.transactionId });
+        creditsService.updateBalance(response.newBalance);
+        return true;
+      } else {
+        throw new Error(response.message);
+      }
+    } catch (error) {
+      console.error('Credits deduction failed:', error);
+      return false;
+    } finally {
+      dispatch({ type: 'SET_PROCESSING_CREDITS', payload: false });
+    }
+  };
+
+  const purchaseCredits = async (amount: number): Promise<boolean> => {
+    try {
+      dispatch({ type: 'SET_PROCESSING_CREDITS', payload: true });
+      
+      const response = await creditsService.purchaseCredits(amount);
+      
+      if (response.success) {
+        dispatch({ type: 'SET_CREDITS', payload: response.newBalance });
+        dispatch({ type: 'SET_LAST_TRANSACTION_ID', payload: response.transactionId });
+        creditsService.updateBalance(response.newBalance);
+        return true;
+      } else {
+        throw new Error(response.message);
+      }
+    } catch (error) {
+      console.error('Credits purchase failed:', error);
+      return false;
+    } finally {
+      dispatch({ type: 'SET_PROCESSING_CREDITS', payload: false });
+    }
+  };
+
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ state, dispatch, deductCredits, purchaseCredits }}>
       {children}
     </AppContext.Provider>
   );
