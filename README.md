@@ -182,7 +182,7 @@ This project is licensed under the MIT License
 
 ## 👥 **Team**
 
-- **H. UdayKumar** - Lead Developer & Project Manager
+- **H. UdayKumar** - Lead Developer & Project Manager ([GitHub](https://github.com/udaykumar0515)) | udaykumarhaibathi@gmail.com
 - **P. Venkata Teja** - Frontend Developer ([GitHub](https://github.com/VenkataTejaP9587)) | venkatatejapatnam@gmail.com
 - **S. Sairam** - UI/UX Designer ([GitHub](https://github.com/sairamshivva)) | sairamshivva@gmail.com
 - **K. Bhanu** - Research & Support ([GitHub](https://github.com/BUNNY5S)) | bhanubunny2030@gmail.com
