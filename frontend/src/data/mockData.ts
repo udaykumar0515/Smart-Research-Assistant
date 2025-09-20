@@ -12,30 +12,71 @@ export const mockUploadResponse: Paper = {
   updates: []
 };
 
-export const mockRetrievalAnswer: Answer = {
-  type: "retrieval",
-  answer: "The authors report an average accuracy of 88.3% on dataset X.",
-  citations: [{
-    type: "paper",
-    paper_id: "paper-001",
-    page: 3,
-    snippet: "We obtained an accuracy of 88.3% on dataset X using our proposed recurrent architecture with attention mechanisms..."
-  }],
-  used_llm: false,
-  credits_used: 0
-};
-
-export const mockSynthesisAnswer: Answer = {
-  type: "synthesis",
-  answer: "No direct claim in the paper. A recent news piece reports a ~3% improvement using optimization Z [News:1].",
-  citations: [{
-    type: "news",
-    id: "news1",
-    title: "New optimization improves recurrent nets",
-    snippet: "A team reports increase in accuracy of recurrent networks on dataset X by 3% using novel optimization techniques."
-  }],
-  used_llm: true,
-  credits_used: 3
+// Different mock responses based on question keywords
+export const getMockAnswer = (question: string): Answer => {
+  const lowerQuestion = question.toLowerCase();
+  
+  // Retrieval responses (direct claims from paper)
+  if (lowerQuestion.includes('accuracy') || lowerQuestion.includes('result') || lowerQuestion.includes('performance')) {
+    return {
+      type: "retrieval",
+      answer: "The authors report an average accuracy of 88.3% on dataset X using their proposed recurrent architecture.",
+      citations: [{
+        type: "paper",
+        paper_id: "paper-001",
+        page: 3,
+        snippet: "We obtained an accuracy of 88.3% on dataset X using our proposed recurrent architecture with attention mechanisms, representing a 5.2% improvement over the baseline method."
+      }],
+      used_llm: false,
+      credits_used: 0
+    };
+  }
+  
+  // Synthesis responses (combining multiple sources)
+  if (lowerQuestion.includes('compare') || lowerQuestion.includes('recent') || lowerQuestion.includes('improved') || lowerQuestion.includes('better')) {
+    return {
+      type: "synthesis",
+      answer: "No direct claim in the paper. A recent news article reports a ~3% improvement using optimization Z.",
+      citations: [{
+        type: "news",
+        id: "news1",
+        title: "New optimization improves recurrent nets",
+        snippet: "A team reports increase in accuracy of recurrent networks on dataset X by 3% using novel optimization techniques."
+      }],
+      used_llm: true,
+      credits_used: 3
+    };
+  }
+  
+  // No-info responses (when question doesn't match patterns)
+  if (lowerQuestion.includes('abstract') || lowerQuestion.includes('summary') || lowerQuestion.includes('overview')) {
+    return {
+      type: "retrieval",
+      answer: "The abstract states: 'We propose a new recurrent architecture that improves sequence modeling performance on time series data. Our approach combines attention mechanisms with optimized recurrent units to achieve state-of-the-art results across multiple benchmarks.'",
+      citations: [{
+        type: "paper",
+        paper_id: "paper-001",
+        page: 1,
+        snippet: "We propose a new recurrent architecture that improves sequence modeling performance on time series data. Our approach combines attention mechanisms with optimized recurrent units to achieve state-of-the-art results across multiple benchmarks."
+      }],
+      used_llm: false,
+      credits_used: 0
+    };
+  }
+  
+  // Default synthesis response
+  return {
+    type: "synthesis",
+    answer: "Based on the available information, this appears to be a research paper on recurrent networks for time series analysis. For more specific details, please ask about particular aspects like methodology, results, or comparisons.",
+    citations: [{
+      type: "paper",
+      paper_id: "paper-001",
+      page: 1,
+      snippet: "We propose a new recurrent architecture that improves sequence modeling performance on time series data."
+    }],
+    used_llm: true,
+    credits_used: 2
+  };
 };
 
 export const mockNews: NewsItem[] = [

@@ -33,17 +33,31 @@ export function ChatMessage({ message }: ChatMessageProps) {
           {message.answer?.answer}
         </p>
         
-        {message.answer?.citations && message.answer.citations.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {message.answer.citations.map((citation, index) => (
-              <CitationChip key={index} citation={citation} />
-            ))}
-          </div>
-        )}
+        {/* Method and credits line */}
+        <div className="text-xs text-gray-500 mb-3 border-t border-gray-100 pt-2">
+          Method: {message.answer?.type === 'retrieval' ? 'Retrieval' : 'Synthesis (LLM fallback)'} — {message.answer?.credits_used} credits.
+        </div>
         
-        {message.answer?.used_llm && (
-          <div className="text-xs text-gray-500 italic">
-            Synthesis produced — {message.answer.credits_used} credits
+        {/* Sources section */}
+        {message.answer?.citations && message.answer.citations.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-gray-600">Sources:</div>
+            <div className="space-y-1">
+              {message.answer.citations.map((citation, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <CitationChip citation={citation} />
+                  <span className="text-xs text-gray-500">
+                    {citation.type === 'paper' 
+                      ? `Paper.pdf — p.${citation.page}` 
+                      : `${citation.title} — example.com/news${index + 1}`
+                    }
+                  </span>
+                  <span className="text-xs text-blue-600 cursor-pointer hover:underline">
+                    (click to view snippet)
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

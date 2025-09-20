@@ -10,6 +10,19 @@ export function Landing() {
   return (
     <div className="min-h-screen bg-[#F6F7FB] py-12">
       <div className="max-w-7xl mx-auto px-6">
+        {/* Transparency Note */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+            <p className="text-sm text-blue-800">
+              <strong>Demo Note:</strong> UI prototype uses mock/sample data; backend integration to be built during hackathon.
+            </p>
+          </div>
+        </motion.div>
+
         {/* Navigation Bar for uploaded papers */}
         {state.papers.length > 0 && (
           <motion.div

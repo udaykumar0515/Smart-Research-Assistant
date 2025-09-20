@@ -6,7 +6,7 @@ import { useAppContext } from '../context/AppContext';
 import { ChatMessage } from '../components/Chat/ChatMessage';
 import { ChatInput } from '../components/Chat/ChatInput';
 import { UpdatesPanel } from '../components/Updates/UpdatesPanel';
-import { mockRetrievalAnswer, mockSynthesisAnswer, mockNews } from '../data/mockData';
+import { getMockAnswer, mockNews } from '../data/mockData';
 import { ChatMessage as ChatMessageType } from '../types';
 import toast from 'react-hot-toast';
 
@@ -25,7 +25,6 @@ export function PaperDetail() {
     if (paper) {
       dispatch({ type: 'SET_CURRENT_PAPER', payload: paper });
       dispatch({ type: 'SET_SELECTED_PAPER', payload: paperId || null });
-      // Clear chat messages when switching papers
       setMessages([]);
       dispatch({ type: 'CLEAR_CHAT_MESSAGES', payload: undefined });
     }
@@ -68,7 +67,7 @@ export function PaperDetail() {
         });
         toast.success('New update found!');
       }
-    }, 15000); // Check every 15 seconds
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [paper, dispatch]);
@@ -86,7 +85,6 @@ export function PaperDetail() {
     setMultiPaperMode(!multiPaperMode);
     dispatch({ type: 'SET_MULTI_PAPER_MODE', payload: !multiPaperMode });
     if (!multiPaperMode) {
-      // When entering multi-paper mode, select current paper
       if (paper) {
         dispatch({ type: 'TOGGLE_PAPER_SELECTION', payload: paper.paper_id });
       }
@@ -103,7 +101,7 @@ export function PaperDetail() {
 
     setMessages(prev => [...prev, userMessage]);
 
-    // Determine response type based on message content and mode
+    // Determine response based on mode and question
     let response;
     let shouldUseCredits = false;
 
@@ -122,13 +120,10 @@ export function PaperDetail() {
         credits_used: 3
       };
       shouldUseCredits = true;
-    } else if (messageContent.toLowerCase().includes('accuracy') || 
-               messageContent.toLowerCase().includes('abstract') ||
-               messageContent.toLowerCase().includes('result')) {
-      response = mockRetrievalAnswer;
     } else {
-      response = mockSynthesisAnswer;
-      shouldUseCredits = true;
+      // Single paper mode - use intelligent response selection
+      response = getMockAnswer(messageContent);
+      shouldUseCredits = response.used_llm;
     }
 
     // Simulate processing delay
@@ -151,10 +146,10 @@ export function PaperDetail() {
             timestamp: new Date().toLocaleString(),
             event: `Asked "${messageContent}"`,
             credits_used: response.credits_used,
-            details: multiPaperMode ? 'Multi-paper Synthesis' : 'Synthesis'
+            details: multiPaperMode ? 'Multi-paper Synthesis' : (response.type === 'synthesis' ? 'Synthesis' : 'Retrieval')
           }
         });
-        toast.success(`Synthesis completed — -${response.credits_used} credits`);
+        toast.success(`${response.type === 'synthesis' ? 'Synthesis' : 'Retrieval'} completed — -${response.credits_used} credits`);
       } else {
         dispatch({
           type: 'ADD_USAGE_ENTRY',
