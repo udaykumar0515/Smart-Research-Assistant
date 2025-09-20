@@ -148,7 +148,7 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 
 ## 🏆 **HackWithHyderabad Hackathon**
 
-This project was developed for **HackWithHyderabad 2025**, focusing on:
+This project was developed for **HackWithHyderabad 2025** by **Core Coders**, focusing on:
 
 - **Innovation**: Revolutionary approach to research paper analysis
 - **User Experience**: Intuitive interface for non-technical users
@@ -180,7 +180,7 @@ This project was developed for **HackWithHyderabad 2025**, focusing on:
 
 This project is licensed under the MIT License 
 
-## 👥 **Team**
+## 👥 **Team - Core Coders**
 
 - **H. UdayKumar** - Lead Developer & Project Manager ([GitHub](https://github.com/udaykumar0515)) | udaykumarhaibathi@gmail.com
 - **P. Venkata Teja** - Frontend Developer ([GitHub](https://github.com/VenkataTejaP9587)) | venkatatejapatnam@gmail.com
