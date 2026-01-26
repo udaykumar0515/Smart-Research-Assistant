@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { ChatMessage as ChatMessageType } from '../../types';
 import { CitationChip } from './CitationChip';
@@ -22,6 +21,17 @@ export function ChatMessage({ message }: ChatMessageProps) {
     );
   }
 
+  const hasAnswer = Boolean(message.answer);
+
+  const getHostname = (url?: string) => {
+    if (!url) return '';
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return '';
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
@@ -30,13 +40,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
     >
       <div className="bg-white border border-gray-200 rounded-xl p-4 max-w-lg shadow-sm">
         <p className="text-[#222222] mb-3 leading-relaxed text-sm">
-          {message.answer?.answer}
+          {hasAnswer ? message.answer!.answer : message.content}
         </p>
-        
-        {/* Method and credits line */}
-        <div className="text-xs text-gray-500 mb-3 border-t border-gray-100 pt-2">
-          Method: {message.answer?.type === 'retrieval' ? 'Retrieval' : 'Synthesis (LLM fallback)'} — {message.answer?.credits_used} credits.
-        </div>
+
+        {hasAnswer && (
+          <div className="text-xs text-gray-500 mb-3 border-t border-gray-100 pt-2">
+            Method: {message.answer!.type === 'retrieval' ? 'Retrieval' : 'Synthesis'} — {message.answer!.credits_used} credits.
+          </div>
+        )}
         
         {/* Sources section */}
         {message.answer?.citations && message.answer.citations.length > 0 && (
@@ -47,13 +58,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 <div key={index} className="flex items-center space-x-2">
                   <CitationChip citation={citation} />
                   <span className="text-xs text-gray-500">
-                    {citation.type === 'paper' 
-                      ? `Paper.pdf — p.${citation.page}` 
-                      : `${citation.title} — example.com/news${index + 1}`
-                    }
-                  </span>
-                  <span className="text-xs text-blue-600 cursor-pointer hover:underline">
-                    (click to view snippet)
+                    {citation.type === 'paper'
+                      ? `Paper — p.${citation.page ?? '-'}`
+                      : `${citation.title ?? 'News'}${getHostname(citation.url) ? ` — ${getHostname(citation.url)}` : ''}`}
                   </span>
                 </div>
               ))}

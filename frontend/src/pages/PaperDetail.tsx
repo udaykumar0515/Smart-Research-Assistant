@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FileText, ChevronDown, Users, Check, Loader2 } from 'lucide-react';
@@ -6,24 +6,28 @@ import { useAppContext } from '../context/AppContext';
 import { ChatMessage } from '../components/Chat/ChatMessage';
 import { ChatInput } from '../components/Chat/ChatInput';
 import { UpdatesPanel } from '../components/Updates/UpdatesPanel';
-import { getMockAnswer, mockNews } from '../data/mockData';
 import { ChatMessage as ChatMessageType } from '../types';
 import toast from 'react-hot-toast';
+import { backendApi } from '../services/backendApi';
 
 export function PaperDetail() {
   const { paperId } = useParams<{ paperId: string }>();
-  const { state, dispatch, deductCredits, purchaseCredits } = useAppContext();
+  const { state, dispatch } = useAppContext();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [showPaperSelector, setShowPaperSelector] = useState(false);
   const [multiPaperMode, setMultiPaperMode] = useState(false);
   const [currentPaperId, setCurrentPaperId] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const chatAbortRef = useRef<AbortController | null>(null);
+  const updatesAbortRef = useRef<AbortController | null>(null);
 
   const paper = state.papers.find(p => p.paper_id === paperId);
   const selectedPapers = state.papers.filter(p => state.selectedPaperIds.includes(p.paper_id));
 
   useEffect(() => {
     if (paper && paperId !== currentPaperId) {
+      chatAbortRef.current?.abort();
       setMessages([]);
       setCurrentPaperId(paperId || null);
       dispatch({ type: 'SET_CURRENT_PAPER', payload: paper });
@@ -46,31 +50,48 @@ export function PaperDetail() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPaperSelector]);
 
-  // Updates polling simulation
+  // Updates polling
   useEffect(() => {
     if (!paper || !paper.subscription_enabled) return;
 
     const interval = setInterval(() => {
-      const existingUpdateIds = paper.updates?.map(u => u.id) || [];
-      const newUpdates = mockNews.filter(news => 
-        news.related_to.some(keyword => paper.keywords.includes(keyword)) &&
-        !existingUpdateIds.includes(news.id)
-      );
+      updatesAbortRef.current?.abort();
+      const controller = new AbortController();
+      updatesAbortRef.current = controller;
 
-      if (newUpdates.length > 0) {
-        const allUpdates = [...(paper.updates || []), ...newUpdates];
-        dispatch({
-          type: 'UPDATE_PAPER_UPDATES',
-          payload: {
-            paperId: paper.paper_id,
-            updates: allUpdates
+      backendApi.getPaperUpdates(paper.paper_id, controller.signal)
+        .then((res) => {
+          const existingIds = new Set((paper.updates ?? []).map(u => u.id));
+          const incoming = res.updates ?? [];
+          const incomingIds = new Set(incoming.map(u => u.id));
+
+          const idsChanged = existingIds.size !== incomingIds.size || [...incomingIds].some(id => !existingIds.has(id));
+
+          if (idsChanged) {
+            dispatch({
+              type: 'UPDATE_PAPER_UPDATES',
+              payload: {
+                paperId: paper.paper_id,
+                updates: incoming
+              }
+            });
+
+            const hasNew = incoming.some(u => !existingIds.has(u.id));
+            if (hasNew) {
+              toast.success('New update found!');
+            }
           }
+        })
+        .catch((err) => {
+          if (err?.name === 'AbortError') return;
+          console.error('Failed to fetch updates:', err);
         });
-        toast.success('New update found!');
-      }
     }, 15000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      updatesAbortRef.current?.abort();
+    };
   }, [paper, dispatch]);
 
   const handlePaperSelect = (selectedPaperId: string) => {
@@ -93,6 +114,7 @@ export function PaperDetail() {
   };
 
   const handleSendMessage = async (messageContent: string) => {
+    if (isSending) return;
     const userMessage: ChatMessageType = {
       id: Date.now().toString(),
       type: 'user',
@@ -102,74 +124,64 @@ export function PaperDetail() {
 
     setMessages(prev => [...prev, userMessage]);
 
-    // Determine response based on mode and question
-    let response;
-    let shouldUseCredits = false;
+    chatAbortRef.current?.abort();
+    const controller = new AbortController();
+    chatAbortRef.current = controller;
 
-    if (multiPaperMode) {
-      response = {
-        type: "synthesis" as const,
-        answer: `Based on analysis of ${selectedPapers.length} selected papers: ${messageContent.toLowerCase().includes('compare') ? 'The papers show different approaches to the problem. Paper 1 focuses on recurrent architectures while Paper 2 emphasizes attention mechanisms.' : 'The selected papers provide complementary insights on this topic.'}`,
-        citations: selectedPapers.map((p, index) => ({
-          type: "paper" as const,
-          paper_id: p.paper_id,
-          page: index + 1,
-          snippet: `From ${p.title}: ${p.abstract.substring(0, 100)}...`
-        })),
-        used_llm: true,
-        credits_used: 3
-      };
-      shouldUseCredits = true;
-    } else {
-      response = getMockAnswer(messageContent);
-      shouldUseCredits = response.used_llm;
-    }
+    const thinkingMessage: ChatMessageType = {
+      id: (Date.now() + 1).toString(),
+      type: 'assistant',
+      content: 'Thinking…',
+      timestamp: new Date()
+    };
 
-    // Simulate processing delay
-    setTimeout(async () => {
-      const assistantMessage: ChatMessageType = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        answer: response
-      };
+    setIsSending(true);
+    setMessages(prev => [...prev, thinkingMessage]);
 
-      setMessages(prev => [...prev, assistantMessage]);
+    try {
+      const mode = multiPaperMode ? 'multi' : 'single';
+      const res = await backendApi.chat(
+        {
+          question: messageContent,
+          mode,
+          paper_id: mode === 'single' ? paper?.paper_id : undefined,
+          paper_ids: mode === 'multi' ? selectedPapers.map(p => p.paper_id) : undefined
+        },
+        controller.signal
+      );
 
-      if (shouldUseCredits) {
-        // Use server-side credits deduction
-        const success = await deductCredits(
-          response.credits_used, 
-          `Asked "${messageContent}" - ${multiPaperMode ? 'Multi-paper Synthesis' : (response.type === 'synthesis' ? 'Synthesis' : 'Retrieval')}`
-        );
+      setMessages(prev => prev.map(m =>
+        m.id === thinkingMessage.id
+          ? { ...m, content: '', answer: res.answer }
+          : m
+      ));
 
-        if (success) {
-          dispatch({
-            type: 'ADD_USAGE_ENTRY',
-            payload: {
-              timestamp: new Date().toLocaleString(),
-              event: `Asked "${messageContent}"`,
-              credits_used: response.credits_used,
-              details: multiPaperMode ? 'Multi-paper Synthesis' : (response.type === 'synthesis' ? 'Synthesis' : 'Retrieval')
-            }
-          });
-          toast.success(`${response.type === 'synthesis' ? 'Synthesis' : 'Retrieval'} completed — -${response.credits_used} credits`);
-        } else {
-          toast.error('Failed to process credits. Please try again.');
+      dispatch({
+        type: 'ADD_USAGE_ENTRY',
+        payload: {
+          timestamp: new Date().toLocaleString(),
+          event: `Asked "${messageContent}"`,
+          credits_used: res.answer.credits_used,
+          details: mode === 'multi' ? 'Multi-paper' : (res.answer.type === 'synthesis' ? 'Synthesis' : 'Retrieval')
         }
-      } else {
-        dispatch({
-          type: 'ADD_USAGE_ENTRY',
-          payload: {
-            timestamp: new Date().toLocaleString(),
-            event: `Asked "${messageContent}"`,
-            credits_used: 0,
-            details: 'Retrieval'
-          }
-        });
+      });
+
+      if (res.credits?.new_balance !== undefined) {
+        dispatch({ type: 'SET_CREDITS', payload: res.credits.new_balance });
+        localStorage.setItem('smart-research-credits', res.credits.new_balance.toString());
       }
-    }, 1000);
+    } catch (err: unknown) {
+      const e = err as { name?: string; message?: string };
+      if (e?.name === 'AbortError') return;
+      setMessages(prev => prev.map(m =>
+        m.id === thinkingMessage.id
+          ? { ...m, content: 'Failed to get response. Please try again.' }
+          : m
+      ));
+      toast.error(e?.message || 'Chat request failed');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   if (!paper) {

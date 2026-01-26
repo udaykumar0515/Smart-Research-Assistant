@@ -1,10 +1,10 @@
-import React from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Clock, CheckCircle } from 'lucide-react';
+import { Clock, CheckCircle, Loader2, FileText } from 'lucide-react';
 import { Paper, NewsItem } from '../../types';
 import { useAppContext } from '../../context/AppContext';
-import { mockUpdateSummary } from '../../data/mockData';
 import { toast } from 'react-hot-toast';
+import { backendApi } from '../../services/backendApi';
 
 interface UpdatesPanelProps {
   paper: Paper;
@@ -12,34 +12,80 @@ interface UpdatesPanelProps {
 
 export function UpdatesPanel({ paper }: UpdatesPanelProps) {
   const { dispatch } = useAppContext();
+  const [summarizingUpdateId, setSummarizingUpdateId] = useState<string | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-  const handleSummarizeUpdate = (update: NewsItem) => {
-    // Deduct credits
-    dispatch({ type: 'DEDUCT_CREDITS', payload: mockUpdateSummary.credits_used });
-    
-    // Add usage entry
-    dispatch({
-      type: 'ADD_USAGE_ENTRY',
-      payload: {
-        timestamp: new Date().toLocaleString(),
-        event: 'Summarize update',
-        credits_used: mockUpdateSummary.credits_used,
-        details: update.title
-      }
+  const sortedUpdates = useMemo(() => {
+    const updates = paper.updates ?? [];
+    return updates.slice().sort((a, b) => {
+      const ta = new Date(a.published_at).getTime();
+      const tb = new Date(b.published_at).getTime();
+      return tb - ta;
     });
+  }, [paper.updates]);
 
-    // Mark as summarized
-    dispatch({
-      type: 'MARK_UPDATE_SUMMARIZED',
-      payload: {
-        paperId: paper.paper_id,
-        updateId: update.id,
-        summary: mockUpdateSummary.summary
+  const handleSummarizeUpdate = async (update: NewsItem) => {
+    if (summarizingUpdateId) return;
+    setSummarizingUpdateId(update.id);
+
+    try {
+      const res = await backendApi.summarizeUpdate(paper.paper_id, update.id);
+      const summary = res.summary;
+      const creditsUsed = res.credits_used ?? 0;
+
+      dispatch({
+        type: 'MARK_UPDATE_SUMMARIZED',
+        payload: {
+          paperId: paper.paper_id,
+          updateId: update.id,
+          summary
+        }
+      });
+
+      dispatch({
+        type: 'ADD_USAGE_ENTRY',
+        payload: {
+          timestamp: new Date().toLocaleString(),
+          event: 'Summarize update',
+          credits_used: creditsUsed,
+          details: update.title
+        }
+      });
+
+      if (res.new_balance !== undefined) {
+        dispatch({ type: 'SET_CREDITS', payload: res.new_balance });
+        localStorage.setItem('smart-research-credits', res.new_balance.toString());
       }
-    });
 
-    // Show toast
-    toast.success(`Update summarized — -${mockUpdateSummary.credits_used} credits`);
+      toast.success(creditsUsed > 0 ? `Update summarized — -${creditsUsed} credits` : 'Update summarized');
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      toast.error(e?.message || 'Failed to summarize update');
+    } finally {
+      setSummarizingUpdateId(null);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    if (isGeneratingReport) return;
+    setIsGeneratingReport(true);
+    try {
+      const res = await backendApi.generateReport(paper.paper_id);
+      if (res.report_url) {
+        window.open(res.report_url, '_blank', 'noopener,noreferrer');
+      }
+      if (!res.report_url && res.report_markdown) {
+        toast.success('Report generated');
+      }
+      if (!res.report_url && !res.report_markdown) {
+        toast.success('Report request submitted');
+      }
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      toast.error(e?.message || 'Failed to generate report');
+    } finally {
+      setIsGeneratingReport(false);
+    }
   };
 
   return (
@@ -54,7 +100,7 @@ export function UpdatesPanel({ paper }: UpdatesPanelProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          {paper.updates.map((update) => (
+          {sortedUpdates.map((update) => (
             <motion.div
               key={update.id}
               initial={{ opacity: 0, y: 10 }}
@@ -86,9 +132,17 @@ export function UpdatesPanel({ paper }: UpdatesPanelProps) {
               ) : (
                 <button
                   onClick={() => handleSummarizeUpdate(update)}
-                  className="w-full bg-[#1ABC9C] text-white text-xs py-2 px-3 rounded-lg hover:bg-[#17a085] transition-colors"
+                  disabled={summarizingUpdateId === update.id}
+                  className="w-full bg-[#1ABC9C] text-white text-xs py-2 px-3 rounded-lg hover:bg-[#17a085] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Summarize update (2 credits)
+                  {summarizingUpdateId === update.id ? (
+                    <span className="inline-flex items-center justify-center w-full">
+                      <Loader2 size={14} className="animate-spin mr-2" />
+                      Summarizing...
+                    </span>
+                  ) : (
+                    'Summarize update'
+                  )}
                 </button>
               )}
             </motion.div>
@@ -97,10 +151,21 @@ export function UpdatesPanel({ paper }: UpdatesPanelProps) {
       )}
 
       <button
-        disabled
-        className="w-full mt-4 bg-gray-300 text-gray-500 text-sm py-2 px-3 rounded-lg cursor-not-allowed"
+        onClick={handleGenerateReport}
+        disabled={isGeneratingReport}
+        className="w-full mt-4 bg-[#1F3A93] text-white text-sm py-2 px-3 rounded-lg hover:bg-[#1a2f7a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
       >
-        Generate report
+        {isGeneratingReport ? (
+          <>
+            <Loader2 size={16} className="animate-spin mr-2" />
+            Generating...
+          </>
+        ) : (
+          <>
+            <FileText size={16} className="mr-2" />
+            Generate report
+          </>
+        )}
       </button>
     </div>
   );

@@ -17,6 +17,7 @@ export interface Citation {
   snippet: string;
   id?: string;
   title?: string;
+  url?: string;
 }
 
 export interface Answer {

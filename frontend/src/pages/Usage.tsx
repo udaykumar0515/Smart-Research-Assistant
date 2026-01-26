@@ -26,7 +26,7 @@ export function Usage() {
       } else {
         toast.error('Failed to purchase credits. Please try again.');
       }
-    } catch (error) {
+    } catch {
       toast.error('An error occurred while purchasing credits.');
     } finally {
       setIsPurchasing(false);

@@ -1,14 +1,20 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileText, Check } from 'lucide-react';
+import { FileText, Check, Loader2 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
-import { mockUploadResponse } from '../../data/mockData';
+import { backendApi } from '../../services/backendApi';
+import { Paper } from '../../types';
+import toast from 'react-hot-toast';
 
 export function UploadCard() {
   const { dispatch } = useAppContext();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState('');
+  const [createSubscription, setCreateSubscription] = useState(true);
+  const [lastUploadedPaper, setLastUploadedPaper] = useState<Paper | null>(null);
+  const uploadAbortRef = useRef<AbortController | null>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -36,20 +42,21 @@ export function UploadCard() {
     }
   };
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File) => {
+    uploadAbortRef.current?.abort();
+    const controller = new AbortController();
+    uploadAbortRef.current = controller;
+
     setFileName(file.name);
-    setIsUploaded(true);
-    
-    // Simulate upload delay
-    setTimeout(() => {
-      // Create a unique paper with timestamp-based ID
-      const newPaper = {
-        ...mockUploadResponse,
-        paper_id: `paper-${Date.now()}`,
-        title: file.name.replace('.pdf', '') || mockUploadResponse.title,
-        updates: []
-      };
-      
+    setIsUploading(true);
+    setIsUploaded(false);
+
+    try {
+      const response = await backendApi.uploadPaper(file, createSubscription, controller.signal);
+      const newPaper = response.paper;
+      setLastUploadedPaper(newPaper);
+      setIsUploaded(true);
+
       dispatch({ type: 'ADD_PAPER', payload: newPaper });
       dispatch({
         type: 'ADD_USAGE_ENTRY',
@@ -60,13 +67,16 @@ export function UploadCard() {
           details: newPaper.title
         }
       });
-      
-      // Reset upload state after a shorter delay to allow multiple uploads
-      setTimeout(() => {
-        setIsUploaded(false);
-        setFileName('');
-      }, 1000);
-    }, 1500);
+
+      toast.success('Paper uploaded successfully');
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'AbortError') return;
+      toast.error(err?.message || 'Upload failed');
+      setIsUploaded(false);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleUploadClick = () => {
@@ -117,7 +127,8 @@ export function UploadCard() {
             <input
               type="checkbox"
               id="subscription"
-              defaultChecked
+              checked={createSubscription}
+              onChange={(e) => setCreateSubscription(e.target.checked)}
               className="w-5 h-5 text-[#1ABC9C] border-gray-300 rounded focus:ring-[#1ABC9C]"
             />
             <label htmlFor="subscription">Create subscription for updates</label>
@@ -134,14 +145,19 @@ export function UploadCard() {
           <div className="space-y-2">
             <button
               onClick={handleUploadClick}
-              disabled={isUploaded}
+              disabled={isUploaded || isUploading}
               className={`w-full px-6 py-3 rounded-lg font-medium shadow-sm transition-all ${
                 isUploaded
                   ? 'bg-[#1ABC9C] text-white cursor-default'
                   : 'bg-[#1F3A93] text-white hover:bg-[#1a2f7a] hover:shadow-lg active:scale-95'
               }`}
             >
-              {isUploaded ? 'Upload Completed' : 'Upload research paper'}
+              {isUploading ? (
+                <span className="inline-flex items-center justify-center w-full">
+                  <Loader2 size={18} className="animate-spin mr-2" />
+                  Uploading...
+                </span>
+              ) : isUploaded ? 'Upload Completed' : 'Upload research paper'}
             </button>
             
             {isUploaded && (
@@ -159,7 +175,7 @@ export function UploadCard() {
         </div>
       </motion.div>
 
-      {isUploaded && (
+      {isUploaded && lastUploadedPaper && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -169,20 +185,20 @@ export function UploadCard() {
             <FileText className="text-[#1F3A93] mt-1" size={24} />
             <div className="flex-1">
               <h4 className="font-semibold text-[#222222] mb-2">
-                {mockUploadResponse.title}
+                {lastUploadedPaper.title}
               </h4>
               <p className="text-gray-600 text-sm mb-3">
-                By: {mockUploadResponse.authors.join(', ')}
+                By: {lastUploadedPaper.authors.join(', ')}
               </p>
               <div className="flex flex-wrap gap-2 text-xs">
                 <span className="bg-[#EEF6F4] text-[#1ABC9C] px-3 py-1 rounded-full border border-[#1ABC9C]">
-                  Subscription: ON
+                  Subscription: {lastUploadedPaper.subscription_enabled ? 'ON' : 'OFF'}
                 </span>
                 <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
-                  Pages: {mockUploadResponse.pages}
+                  Pages: {lastUploadedPaper.pages}
                 </span>
                 <span className="bg-[#1ABC9C] text-white px-3 py-1 rounded-full animate-pulse">
-                  {mockUploadResponse.updates_count} updates
+                  {lastUploadedPaper.updates_count} updates
                 </span>
               </div>
             </div>

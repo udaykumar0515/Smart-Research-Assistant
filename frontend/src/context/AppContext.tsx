@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import { Paper, ChatMessage, UsageEntry, NewsItem } from '../types';
-import { initialUsageEntries } from '../data/mockData';
-import { creditsService } from '../services/creditsService';
+import { backendApi } from '../services/backendApi';
 
 interface AppState {
   credits: number;
@@ -45,7 +44,7 @@ const initialState: AppState = {
   selectedPaperId: null,
   selectedPaperIds: [],
   chatMessages: [],
-  usageEntries: initialUsageEntries,
+  usageEntries: [],
   isProcessingCredits: false,
   lastTransactionId: null
 };
@@ -64,7 +63,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, currentPaper: action.payload };
     case 'SET_SELECTED_PAPER':
       return { ...state, selectedPaperId: action.payload };
-    case 'TOGGLE_PAPER_SELECTION':
+    case 'TOGGLE_PAPER_SELECTION': {
       const paperId = action.payload;
       const isSelected = state.selectedPaperIds.includes(paperId);
       return {
@@ -73,6 +72,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
           ? state.selectedPaperIds.filter(id => id !== paperId)
           : [...state.selectedPaperIds, paperId]
       };
+    }
     case 'SET_MULTI_PAPER_MODE':
       return {
         ...state,
@@ -138,17 +138,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deductCredits = async (amount: number, reason: string): Promise<boolean> => {
     try {
       dispatch({ type: 'SET_PROCESSING_CREDITS', payload: true });
-      
-      const response = await creditsService.deductCredits(amount, reason);
-      
-      if (response.success) {
-        dispatch({ type: 'SET_CREDITS', payload: response.newBalance });
-        dispatch({ type: 'SET_LAST_TRANSACTION_ID', payload: response.transactionId });
-        creditsService.updateBalance(response.newBalance);
-        return true;
-      } else {
-        throw new Error(response.message);
+
+      const response = await backendApi.deductCredits({ amount, reason });
+
+      if (!response.success) {
+        throw new Error(response.message || 'Credits deduction failed');
       }
+
+      dispatch({ type: 'SET_CREDITS', payload: response.newBalance });
+      dispatch({ type: 'SET_LAST_TRANSACTION_ID', payload: response.transactionId ?? null });
+      localStorage.setItem('smart-research-credits', response.newBalance.toString());
+      return true;
     } catch (error) {
       console.error('Credits deduction failed:', error);
       return false;
@@ -160,17 +160,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const purchaseCredits = async (amount: number): Promise<boolean> => {
     try {
       dispatch({ type: 'SET_PROCESSING_CREDITS', payload: true });
-      
-      const response = await creditsService.purchaseCredits(amount);
-      
-      if (response.success) {
-        dispatch({ type: 'SET_CREDITS', payload: response.newBalance });
-        dispatch({ type: 'SET_LAST_TRANSACTION_ID', payload: response.transactionId });
-        creditsService.updateBalance(response.newBalance);
-        return true;
-      } else {
-        throw new Error(response.message);
+
+      const response = await backendApi.purchaseCredits({ amount });
+
+      if (!response.success) {
+        throw new Error(response.message || 'Credits purchase failed');
       }
+
+      dispatch({ type: 'SET_CREDITS', payload: response.newBalance });
+      dispatch({ type: 'SET_LAST_TRANSACTION_ID', payload: response.transactionId ?? null });
+      localStorage.setItem('smart-research-credits', response.newBalance.toString());
+      return true;
     } catch (error) {
       console.error('Credits purchase failed:', error);
       return false;

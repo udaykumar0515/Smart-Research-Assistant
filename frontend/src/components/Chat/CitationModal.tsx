@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink } from 'lucide-react';
 import { Citation } from '../../types';
@@ -10,6 +9,13 @@ interface CitationModalProps {
 }
 
 export function CitationModal({ citation, isOpen, onClose }: CitationModalProps) {
+  const canOpen = Boolean(citation.url);
+
+  const handleOpen = () => {
+    if (!citation.url) return;
+    window.open(citation.url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -58,12 +64,20 @@ export function CitationModal({ citation, isOpen, onClose }: CitationModalProps)
               
               <div className="flex justify-end space-x-3 pt-4 border-t">
                 {citation.type === 'paper' ? (
-                  <button className="flex items-center space-x-2 text-[#1F3A93] hover:text-[#1ABC9C] transition-colors">
+                  <button
+                    onClick={handleOpen}
+                    disabled={!canOpen}
+                    className="flex items-center space-x-2 text-[#1F3A93] hover:text-[#1ABC9C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <ExternalLink size={16} />
                     <span>Go to page</span>
                   </button>
                 ) : (
-                  <button className="flex items-center space-x-2 text-[#1F3A93] hover:text-[#1ABC9C] transition-colors">
+                  <button
+                    onClick={handleOpen}
+                    disabled={!canOpen}
+                    className="flex items-center space-x-2 text-[#1F3A93] hover:text-[#1ABC9C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <ExternalLink size={16} />
                     <span>Read article</span>
                   </button>
