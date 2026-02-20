@@ -18,6 +18,24 @@ docs/
 .env.test.local
 .env.production.local
 
+# Secrets & credentials (never commit)
+backend/service-account.json
+sigma-hydra-485511-p4-*.json
+*service-account*.json
+*service_account*.json
+secrets/
+
+# Backend local data (never commit)
+backend_data/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
 # IDE files
 .vscode/
 .idea/
@@ -64,6 +82,7 @@ screenshots/*.tmp
 # Test files
 test.html
 test-app.html
+test_document_ai.py
 
 # Build artifacts
 *.tgz
