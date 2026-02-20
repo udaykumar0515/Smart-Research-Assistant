@@ -17,6 +17,25 @@ class NewsItem(BaseModel):
     summary: str | None = None
 
 
+class PageAnalysis(BaseModel):
+    page_number: int
+    columns: int = 1
+    has_table: bool = False
+    has_image: bool = False
+    image_count: int = 0
+    extraction_method: str = "pymupdf"  # or "docai"
+
+
+class PaperAnalysis(BaseModel):
+    total_pages: int = 0
+    is_double_column: bool = False
+    pages_with_tables: list[int] = Field(default_factory=list)
+    pages_with_images: list[int] = Field(default_factory=list)
+    docai_pages: list[int] = Field(default_factory=list)
+    pymupdf_pages: list[int] = Field(default_factory=list)
+    page_analyses: list[PageAnalysis] = Field(default_factory=list)
+
+
 class Paper(BaseModel):
     paper_id: str
     title: str
@@ -27,6 +46,7 @@ class Paper(BaseModel):
     subscription_enabled: bool = False
     updates_count: int = 0
     updates: list[NewsItem] | None = None
+    analysis: PaperAnalysis | None = None
 
 
 class Citation(BaseModel):

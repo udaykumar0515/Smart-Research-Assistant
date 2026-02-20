@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import load_settings
-from .docai import extract_text_via_docai
+from .extraction_pipeline import process_paper
 from .llm_client import generate_answer, is_available as is_llm_available
 from .models import Answer, ChatRequest, ChatResponse, CreditsDeductRequest, CreditsPurchaseRequest, CreditsResponse, NewsItem, Paper, UploadPaperResponse
 from .storage import Storage
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 settings = load_settings()
 store = Storage(sqlite_path=settings.sqlite_path, data_dir=settings.data_dir)
@@ -46,14 +50,13 @@ async def upload_paper(
     file_path = store.save_pdf_bytes(pdf_bytes)
 
     try:
-        text, pages = extract_text_via_docai(
-            project_id=settings.docai_project_id,
-            location=settings.docai_location,
-            processor_id=settings.docai_processor_id,
+        combined_text, page_count, page_data, analysis = process_paper(
             pdf_bytes=pdf_bytes,
+            settings=settings,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Document AI failed: {e}")
+        logger.error("Extraction pipeline failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Extraction failed: {e}")
 
     paper_id = f"paper-{uuid.uuid4().hex}"
     subscription_enabled = create_subscription.strip().lower() in {"1", "true", "yes", "on"}
@@ -62,15 +65,31 @@ async def upload_paper(
         paper_id=paper_id,
         title=(file.filename or "Uploaded Paper").replace(".pdf", ""),
         authors=[],
-        abstract=(text[:600].strip() if text else ""),
-        pages=pages,
+        abstract=(combined_text[:600].strip() if combined_text else ""),
+        pages=page_count,
         keywords=[],
         subscription_enabled=subscription_enabled,
         updates_count=0,
         updates=[],
+        analysis=analysis,
     )
 
-    store.upsert_paper(paper, extracted_text=text, file_path=file_path)
+    store.upsert_paper(
+        paper,
+        extracted_text=combined_text,
+        file_path=file_path,
+        page_data=page_data,
+        analysis_json=analysis.model_dump(),
+    )
+
+    logger.info(
+        "Paper %s uploaded: %d pages, docai=%d, pymupdf=%d",
+        paper_id,
+        page_count,
+        len(analysis.docai_pages),
+        len(analysis.pymupdf_pages),
+    )
+
     return UploadPaperResponse(paper=paper)
 
 
@@ -88,10 +107,14 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
     contexts: list[str] = []
     for pid in paper_ids:
-        sp = store.get_paper(pid)
-        if sp is None:
-            raise HTTPException(status_code=404, detail=f"Paper not found: {pid}")
-        contexts.append(sp.extracted_text)
+        # Use page-wise combined text for best quality
+        text = store.get_combined_text(pid)
+        if not text:
+            sp = store.get_paper(pid)
+            if sp is None:
+                raise HTTPException(status_code=404, detail=f"Paper not found: {pid}")
+            text = sp.extracted_text
+        contexts.append(text)
 
     answer_text = generate_answer(
         provider=settings.llm_provider,
@@ -119,6 +142,33 @@ async def chat(req: ChatRequest) -> ChatResponse:
     )
 
     return ChatResponse(answer=ans, credits=credits_meta)
+
+
+@app.get(f"{settings.api_prefix}/papers/{{paper_id}}")
+async def get_paper(paper_id: str) -> dict:
+    sp = store.get_paper(paper_id)
+    if sp is None:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    return {
+        "paper": sp.paper.model_dump(),
+        "analysis": sp.analysis_json,
+        "page_count": sp.paper.pages,
+        "extraction_summary": {
+            "docai_pages": sp.analysis_json.get("docai_pages", []) if sp.analysis_json else [],
+            "pymupdf_pages": sp.analysis_json.get("pymupdf_pages", []) if sp.analysis_json else [],
+        },
+    }
+
+
+@app.get(f"{settings.api_prefix}/papers/{{paper_id}}/pages/{{page_num}}")
+async def get_page(paper_id: str, page_num: int) -> dict:
+    sp = store.get_paper(paper_id)
+    if sp is None:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    page_key = str(page_num)
+    if page_key not in sp.page_data:
+        raise HTTPException(status_code=404, detail=f"Page {page_num} not found")
+    return {"page_number": page_num, **sp.page_data[page_key]}
 
 
 @app.get(f"{settings.api_prefix}/papers/{{paper_id}}/updates")
