@@ -27,10 +27,14 @@ class Settings(BaseModel):
     docai_processor_id: str = ""
     google_credentials_path: str = ""
 
-    # LLM (provider-agnostic)
+    # LLM — primary (answers questions)
     llm_provider: str = ""
     llm_api_key: str = ""
     llm_model: str = ""
+
+    # LLM — router (cheap, picks relevant sections)
+    llm_router_api_key: str = ""
+    llm_router_model: str = ""
 
 
 def load_settings() -> Settings:
@@ -53,4 +57,6 @@ def load_settings() -> Settings:
         llm_provider=os.getenv("LLM_PROVIDER", ""),
         llm_api_key=os.getenv("LLM_API_KEY", ""),
         llm_model=os.getenv("LLM_MODEL", ""),
+        llm_router_api_key=os.getenv("LLM_ROUTER_API_KEY", ""),
+        llm_router_model=os.getenv("LLM_ROUTER_MODEL", ""),
     )

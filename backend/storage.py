@@ -15,8 +15,9 @@ class StoredPaper:
     paper: Paper
     extracted_text: str
     file_path: str
-    page_data: dict  # {page_num_str: {text, method, columns, has_table, has_image}}
+    page_data: dict
     analysis_json: dict | None = None
+    sections_json: dict | None = None
 
 
 class Storage:
@@ -42,7 +43,8 @@ class Storage:
                   extracted_text text not null,
                   file_path text not null,
                   page_data text not null default '{}',
-                  analysis_json text not null default '{}'
+                  analysis_json text not null default '{}',
+                  sections_json text not null default '{}'
                 )
                 """
             )
@@ -65,6 +67,10 @@ class Storage:
                 conn.execute("select analysis_json from papers limit 0")
             except sqlite3.OperationalError:
                 conn.execute("alter table papers add column analysis_json text not null default '{}'")
+            try:
+                conn.execute("select sections_json from papers limit 0")
+            except sqlite3.OperationalError:
+                conn.execute("alter table papers add column sections_json text not null default '{}'")
 
     def save_pdf_bytes(self, pdf_bytes: bytes) -> str:
         paper_dir = Path(self.data_dir) / "papers"
@@ -81,17 +87,20 @@ class Storage:
         file_path: str,
         page_data: dict | None = None,
         analysis_json: dict | None = None,
+        sections_json: dict | None = None,
     ) -> None:
         pd_json = json.dumps(page_data or {})
         an_json = json.dumps(analysis_json or {})
+        sc_json = json.dumps(sections_json or {})
         with self._connect() as conn:
             conn.execute(
-                "insert into papers (paper_id, paper_json, extracted_text, file_path, page_data, analysis_json) "
-                "values (?, ?, ?, ?, ?, ?) "
+                "insert into papers (paper_id, paper_json, extracted_text, file_path, page_data, analysis_json, sections_json) "
+                "values (?, ?, ?, ?, ?, ?, ?) "
                 "on conflict(paper_id) do update set "
                 "paper_json=excluded.paper_json, extracted_text=excluded.extracted_text, "
-                "file_path=excluded.file_path, page_data=excluded.page_data, analysis_json=excluded.analysis_json",
-                (paper.paper_id, paper.model_dump_json(), extracted_text, file_path, pd_json, an_json),
+                "file_path=excluded.file_path, page_data=excluded.page_data, "
+                "analysis_json=excluded.analysis_json, sections_json=excluded.sections_json",
+                (paper.paper_id, paper.model_dump_json(), extracted_text, file_path, pd_json, an_json, sc_json),
             )
 
     def get_paper(self, paper_id: str) -> StoredPaper | None:
@@ -102,12 +111,14 @@ class Storage:
             paper = Paper.model_validate_json(row["paper_json"])
             page_data = json.loads(row["page_data"]) if row["page_data"] else {}
             analysis_json = json.loads(row["analysis_json"]) if row["analysis_json"] else None
+            sections_json = json.loads(row["sections_json"]) if row["sections_json"] else None
             return StoredPaper(
                 paper=paper,
                 extracted_text=row["extracted_text"],
                 file_path=row["file_path"],
                 page_data=page_data,
                 analysis_json=analysis_json,
+                sections_json=sections_json,
             )
 
     def get_combined_text(self, paper_id: str) -> str:

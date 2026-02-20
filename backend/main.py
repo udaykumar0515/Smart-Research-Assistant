@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import load_settings
 from .extraction_pipeline import process_paper
-from .llm_client import generate_answer, is_available as is_llm_available
+from .llm_client import generate_answer, is_available as is_llm_available, route_question
 from .models import Answer, ChatRequest, ChatResponse, CreditsDeductRequest, CreditsPurchaseRequest, CreditsResponse, NewsItem, Paper, UploadPaperResponse
 from .storage import Storage
 
@@ -50,7 +50,7 @@ async def upload_paper(
     file_path = store.save_pdf_bytes(pdf_bytes)
 
     try:
-        combined_text, page_count, page_data, analysis = process_paper(
+        combined_text, page_count, page_data, analysis, sections_data = process_paper(
             pdf_bytes=pdf_bytes,
             settings=settings,
         )
@@ -80,12 +80,14 @@ async def upload_paper(
         file_path=file_path,
         page_data=page_data,
         analysis_json=analysis.model_dump(),
+        sections_json=sections_data,
     )
 
     logger.info(
-        "Paper %s uploaded: %d pages, docai=%d, pymupdf=%d",
+        "Paper %s uploaded: %d pages, %d sections, docai=%d, pymupdf=%d",
         paper_id,
         page_count,
+        len(sections_data.get("sections", {})),
         len(analysis.docai_pages),
         len(analysis.pymupdf_pages),
     )
@@ -107,14 +109,44 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
     contexts: list[str] = []
     for pid in paper_ids:
-        # Use page-wise combined text for best quality
-        text = store.get_combined_text(pid)
-        if not text:
-            sp = store.get_paper(pid)
-            if sp is None:
-                raise HTTPException(status_code=404, detail=f"Paper not found: {pid}")
-            text = sp.extracted_text
-        contexts.append(text)
+        sp = store.get_paper(pid)
+        if sp is None:
+            raise HTTPException(status_code=404, detail=f"Paper not found: {pid}")
+
+        sections = sp.sections_json or {}
+        section_order = sections.get("section_order", [])
+        abstract = sections.get("abstract", "")
+        headings_summary = sections.get("headings_summary", "")
+        section_map = sections.get("sections", {})
+
+        # ── Stage 1: Router LLM picks relevant sections ──
+        if section_order and settings.llm_router_api_key:
+            selected_keys = route_question(
+                api_key=settings.llm_router_api_key,
+                model=settings.llm_router_model or settings.llm_model,
+                question=req.question,
+                abstract=abstract,
+                headings_summary=headings_summary,
+                section_order=section_order,
+            )
+            logger.info("Router selected sections: %s", selected_keys)
+
+            # ── Build context from selected sections only ──
+            parts = []
+            if "abstract" in selected_keys and abstract:
+                parts.append(f"[Abstract]\n{abstract}")
+            for key in selected_keys:
+                if key in section_map:
+                    sec = section_map[key]
+                    parts.append(f"[{sec['heading']}]\n{sec['text']}")
+            context = "\n\n".join(parts) if parts else sp.extracted_text
+        else:
+            # No sections or no router — fall back to full text
+            context = store.get_combined_text(pid) or sp.extracted_text
+
+        contexts.append(context)
+
+    # ── Stage 2: Primary LLM answers ──
 
     answer_text = generate_answer(
         provider=settings.llm_provider,
@@ -149,6 +181,7 @@ async def get_paper(paper_id: str) -> dict:
     sp = store.get_paper(paper_id)
     if sp is None:
         raise HTTPException(status_code=404, detail="Paper not found")
+    sections = sp.sections_json or {}
     return {
         "paper": sp.paper.model_dump(),
         "analysis": sp.analysis_json,
@@ -156,6 +189,28 @@ async def get_paper(paper_id: str) -> dict:
         "extraction_summary": {
             "docai_pages": sp.analysis_json.get("docai_pages", []) if sp.analysis_json else [],
             "pymupdf_pages": sp.analysis_json.get("pymupdf_pages", []) if sp.analysis_json else [],
+        },
+        "sections_summary": {
+            "headings": sections.get("headings_summary", ""),
+            "section_count": len(sections.get("sections", {})),
+            "section_order": sections.get("section_order", []),
+        },
+    }
+
+
+@app.get(f"{settings.api_prefix}/papers/{{paper_id}}/sections")
+async def get_sections(paper_id: str) -> dict:
+    sp = store.get_paper(paper_id)
+    if sp is None:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    sections = sp.sections_json or {}
+    return {
+        "abstract": sections.get("abstract", "")[:500],
+        "headings_summary": sections.get("headings_summary", ""),
+        "section_order": sections.get("section_order", []),
+        "sections": {
+            k: {"heading": v["heading"], "char_count": v.get("char_count", len(v.get("text", "")))}
+            for k, v in sections.get("sections", {}).items()
         },
     }
 

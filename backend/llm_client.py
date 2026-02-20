@@ -1,15 +1,12 @@
-"""Provider-agnostic LLM client.
+"""Provider-agnostic LLM client with two-stage support.
 
-Configure via .env:
-  LLM_PROVIDER=  (e.g. gemini, openai, groq — leave empty to disable)
-  LLM_API_KEY=
-  LLM_MODEL=
-
-To add a new provider, add a handler in generate_answer().
+Primary LLM: answers questions using selected sections.
+Router LLM:  cheap call to identify which sections a question needs.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Iterable
 
@@ -19,11 +16,75 @@ _NOT_CONFIGURED_MSG = (
     "LLM is not configured. Set LLM_PROVIDER, LLM_API_KEY, and LLM_MODEL in .env to enable AI answers."
 )
 
+MAX_CONTEXT_CHARS = 6000  # ~2000 tokens, safe for 8B models on free tiers
+
 
 def is_available(provider: str, api_key: str) -> bool:
-    """Check if LLM is configured and ready to use."""
     return bool(provider and api_key)
 
+
+# ── Stage 1: Router ──────────────────────────────────────
+
+def route_question(
+    *,
+    api_key: str,
+    model: str,
+    question: str,
+    abstract: str,
+    headings_summary: str,
+    section_order: list[str],
+) -> list[str]:
+    """Ask the router LLM which sections are needed to answer the question.
+
+    Sends only the abstract + list of headings (tiny prompt).
+    Returns list of section keys like ['1_introduction', '3_results'].
+    """
+    if not api_key:
+        logger.warning("Router LLM not configured, returning all sections")
+        return section_order
+
+    prompt = (
+        "You are a research paper section router. Given a question and a paper's structure, "
+        "return ONLY a JSON array of section keys needed to answer the question.\n\n"
+        "RULES:\n"
+        "- Return ONLY a JSON array, nothing else\n"
+        "- Include 'abstract' if the question is about the paper's overview or topic\n"
+        "- Be selective — pick only the sections truly needed\n"
+        "- If unsure, include the most likely sections\n\n"
+        f"Available sections: {json.dumps(section_order)}\n\n"
+        f"Paper abstract: {abstract[:500]}\n\n"
+        f"Section headings: {headings_summary}\n\n"
+        f"Question: {question}\n\n"
+        "Return ONLY a JSON array of section keys:"
+    )
+
+    try:
+        raw = _call_openai_compatible(api_key, model or "llama-3.1-8b-instant", prompt, "groq")
+        logger.info("Router raw response: %s", raw[:200])
+
+        # Parse JSON array from response
+        # Strip markdown code fences if present
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+        selected = json.loads(cleaned)
+        if isinstance(selected, list):
+            # Filter to only valid section keys
+            valid = [s for s in selected if s in section_order]
+            if valid:
+                logger.info("Router selected sections: %s", valid)
+                return valid
+
+        logger.warning("Router returned invalid format, using all sections")
+        return section_order
+
+    except Exception as e:
+        logger.error("Router LLM failed: %s, using all sections", e)
+        return section_order
+
+
+# ── Stage 2: Answer ──────────────────────────────────────
 
 def generate_answer(
     *,
@@ -33,18 +94,12 @@ def generate_answer(
     question: str,
     contexts: Iterable[str],
 ) -> str:
-    """Generate an answer using the configured LLM provider.
-
-    Returns a fallback message if no provider is configured.
-    Easily extensible — add new elif blocks for new providers.
-    """
+    """Generate an answer using the configured LLM provider."""
     if not is_available(provider, api_key):
         return _NOT_CONFIGURED_MSG
 
     joined_context = "\n\n".join([c for c in contexts if c])
 
-    # Truncate to stay within token limits (especially for smaller models)
-    MAX_CONTEXT_CHARS = 6000  # ~2000 tokens, safe for 8B models on free tiers
     if len(joined_context) > MAX_CONTEXT_CHARS:
         logger.info("Truncating context from %d to %d chars", len(joined_context), MAX_CONTEXT_CHARS)
         joined_context = joined_context[:MAX_CONTEXT_CHARS] + "\n\n[... text truncated for token limit ...]"
@@ -58,24 +113,19 @@ def generate_answer(
 
     provider_lower = provider.strip().lower()
 
-    # ── Provider handlers ──────────────────────────────────
-    # Add new providers as elif blocks below
-
     if provider_lower == "gemini":
         return _call_gemini(api_key, model, prompt)
-
     elif provider_lower in ("openai", "groq"):
         return _call_openai_compatible(api_key, model, prompt, provider_lower)
-
     else:
         logger.warning("Unknown LLM provider: %s", provider)
         return f"Unknown LLM provider '{provider}'. Supported: gemini, openai, groq."
 
 
-def _call_gemini(api_key: str, model: str, prompt: str) -> str:
-    """Call Google Gemini API."""
-    import google.generativeai as genai
+# ── Provider backends ────────────────────────────────────
 
+def _call_gemini(api_key: str, model: str, prompt: str) -> str:
+    import google.generativeai as genai
     genai.configure(api_key=api_key)
     m = genai.GenerativeModel(model or "gemini-1.5-flash")
     resp = m.generate_content(prompt)
@@ -83,9 +133,7 @@ def _call_gemini(api_key: str, model: str, prompt: str) -> str:
 
 
 def _call_openai_compatible(api_key: str, model: str, prompt: str, provider: str) -> str:
-    """Call OpenAI-compatible APIs (OpenAI, Groq, etc.)."""
     from openai import OpenAI
-
     base_urls = {
         "openai": "https://api.openai.com/v1",
         "groq": "https://api.groq.com/openai/v1",

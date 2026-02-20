@@ -1,6 +1,7 @@
 """Hybrid extraction pipeline — orchestrates PyMuPDF + Document AI.
 
 Routes pages to free local extraction or paid API based on layout analysis.
+Then parses extracted text into named sections for two-stage LLM queries.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from .config import Settings
 from .docai import extract_specific_pages, extract_text_via_docai
 from .models import PageAnalysis, PaperAnalysis
 from .pdf_analyzer import PdfLayout, analyze_pdf, extract_text_pymupdf
+from .section_parser import parse_sections
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +20,11 @@ logger = logging.getLogger(__name__)
 def process_paper(
     pdf_bytes: bytes,
     settings: Settings,
-) -> tuple[str, int, dict, PaperAnalysis]:
+) -> tuple[str, int, dict, PaperAnalysis, dict]:
     """Run the full hybrid extraction pipeline.
 
     Returns:
-        (combined_text, page_count, page_data_dict, analysis)
+        (combined_text, page_count, page_data_dict, analysis, sections_data)
     """
     # ── Step 1: Local layout analysis ──
     layout: PdfLayout = analyze_pdf(pdf_bytes)
@@ -74,7 +76,6 @@ def process_paper(
 
     if docai_pages and docai_configured:
         if layout.is_double_column:
-            # Double column: send entire PDF to Document AI for proper reading order
             logger.info("Double-column detected — sending entire PDF to Document AI")
             full_text, _ = extract_text_via_docai(
                 project_id=settings.docai_project_id,
@@ -82,13 +83,9 @@ def process_paper(
                 processor_id=settings.docai_processor_id,
                 pdf_bytes=pdf_bytes,
             )
-            # For double-column, we use the full text from DocAI for all pages
-            # We still keep local extraction for reference but DocAI text is primary
             page_texts.clear()
-            # Store full text as page 0 (special key for full-document text)
             page_texts[0] = full_text
         else:
-            # Single column with some complex pages: send only those pages
             logger.info("Extracting %d specific pages via Document AI", len(docai_pages))
             docai_texts = extract_specific_pages(
                 project_id=settings.docai_project_id,
@@ -105,17 +102,15 @@ def process_paper(
         )
         fallback_texts = extract_text_pymupdf(pdf_bytes, docai_pages)
         page_texts.update(fallback_texts)
-        # Update methods to reflect fallback
         for pa in page_analyses:
             pa.extraction_method = "pymupdf"
         analysis.docai_pages = []
         analysis.pymupdf_pages = list(range(1, layout.total_pages + 1))
 
-    # ── Step 5: Build page_data dict (JSON-ready for Firestore) ──
+    # ── Step 5: Build page_data dict ──
     page_data: dict[str, dict] = {}
 
     if 0 in page_texts:
-        # Full DocAI text mode (double-column)
         page_data["0"] = {
             "text": page_texts[0],
             "method": "docai",
@@ -135,7 +130,7 @@ def process_paper(
                 "has_image": pa.has_image if pa else False,
             }
 
-    # ── Step 6: Combine all text in order ──
+    # ── Step 6: Combine all text ──
     if 0 in page_texts:
         combined_text = page_texts[0]
     else:
@@ -143,12 +138,15 @@ def process_paper(
             page_texts[p] for p in sorted(page_texts.keys())
         )
 
+    # ── Step 7: Parse into sections ──
+    sections_data = parse_sections(combined_text)
     logger.info(
-        "Pipeline complete: %d pages, %d chars, docai=%d pages, pymupdf=%d pages",
+        "Pipeline complete: %d pages, %d chars, %d sections, headings: %s",
         layout.total_pages,
         len(combined_text),
-        len(docai_pages),
-        len(pymupdf_pages),
+        len(sections_data.get("sections", {})),
+        sections_data.get("headings_summary", ""),
     )
 
-    return combined_text, layout.total_pages, page_data, analysis
+    return combined_text, layout.total_pages, page_data, analysis, sections_data
+
