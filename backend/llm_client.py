@@ -42,6 +42,13 @@ def generate_answer(
         return _NOT_CONFIGURED_MSG
 
     joined_context = "\n\n".join([c for c in contexts if c])
+
+    # Truncate to stay within token limits (especially for smaller models)
+    MAX_CONTEXT_CHARS = 6000  # ~2000 tokens, safe for 8B models on free tiers
+    if len(joined_context) > MAX_CONTEXT_CHARS:
+        logger.info("Truncating context from %d to %d chars", len(joined_context), MAX_CONTEXT_CHARS)
+        joined_context = joined_context[:MAX_CONTEXT_CHARS] + "\n\n[... text truncated for token limit ...]"
+
     prompt = (
         "You are a research assistant. Answer the user question using the provided paper text. "
         "If you cannot find it in the text, say you are not sure.\n\n"
