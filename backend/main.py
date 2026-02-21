@@ -35,6 +35,7 @@ def health() -> dict:
         "ok": True,
         "docai_configured": bool(settings.docai_project_id and settings.docai_processor_id),
         "llm_configured": is_llm_available(settings.llm_provider, settings.llm_api_key),
+        "router_configured": bool(settings.llm_router_api_key),
     }
 
 
@@ -61,11 +62,16 @@ async def upload_paper(
     paper_id = f"paper-{uuid.uuid4().hex}"
     subscription_enabled = create_subscription.strip().lower() in {"1", "true", "yes", "on"}
 
+    # Use parsed abstract from section parser, not raw text
+    parsed_abstract = sections_data.get("abstract", "").strip()
+    if not parsed_abstract and combined_text:
+        parsed_abstract = combined_text[:600].strip()
+
     paper = Paper(
         paper_id=paper_id,
         title=(file.filename or "Uploaded Paper").replace(".pdf", ""),
         authors=[],
-        abstract=(combined_text[:600].strip() if combined_text else ""),
+        abstract=parsed_abstract[:600],
         pages=page_count,
         keywords=[],
         subscription_enabled=subscription_enabled,
@@ -176,6 +182,12 @@ async def chat(req: ChatRequest) -> ChatResponse:
     return ChatResponse(answer=ans, credits=credits_meta)
 
 
+@app.get(f"{settings.api_prefix}/papers")
+async def list_papers() -> dict:
+    papers = store.list_papers()
+    return {"papers": [p.model_dump() for p in papers]}
+
+
 @app.get(f"{settings.api_prefix}/papers/{{paper_id}}")
 async def get_paper(paper_id: str) -> dict:
     sp = store.get_paper(paper_id)
@@ -242,12 +254,34 @@ async def summarize_update(paper_id: str, update_id: str) -> dict:
     if sp is None:
         raise HTTPException(status_code=404, detail="Paper not found")
 
+    # Find the specific update
+    update = None
+    if sp.paper.updates:
+        update = next((u for u in sp.paper.updates if u.id == update_id), None)
+
+    if not is_llm_available(settings.llm_provider, settings.llm_api_key):
+        return {"summary": "LLM not configured — cannot summarize.", "credits_used": 0, "new_balance": store.get_credits_balance()}
+
     credits_used = 2
     ok, new_balance, _tx = store.deduct_credits(credits_used)
     if not ok:
         raise HTTPException(status_code=402, detail="Insufficient credits")
 
-    return {"summary": "Summary not implemented yet for hackathon mode.", "credits_used": credits_used, "new_balance": new_balance}
+    update_text = ""
+    if update:
+        update_text = f"Title: {update.title}\nSnippet: {update.snippet}\nURL: {update.url}"
+    else:
+        update_text = f"Update {update_id} related to paper: {sp.paper.title}"
+
+    summary = generate_answer(
+        provider=settings.llm_provider,
+        api_key=settings.llm_api_key,
+        model=settings.llm_model,
+        question="Provide a concise 2-3 sentence summary of this update and how it relates to the research paper.",
+        contexts=[update_text, f"Research paper: {sp.paper.title}. Abstract: {sp.paper.abstract[:300]}"],
+    )
+
+    return {"summary": summary, "credits_used": credits_used, "new_balance": new_balance}
 
 
 @app.post(f"{settings.api_prefix}/papers/{{paper_id}}/report")
@@ -256,12 +290,47 @@ async def generate_report(paper_id: str) -> dict:
     if sp is None:
         raise HTTPException(status_code=404, detail="Paper not found")
 
+    if not is_llm_available(settings.llm_provider, settings.llm_api_key):
+        md = f"# Report: {sp.paper.title}\n\nLLM not configured — cannot generate a full report.\n"
+        return {"report_markdown": md, "new_balance": store.get_credits_balance()}
+
     credits_used = 5
     ok, new_balance, _tx = store.deduct_credits(credits_used)
     if not ok:
         raise HTTPException(status_code=402, detail="Insufficient credits")
 
-    md = f"# Report\n\nPaper: {sp.paper.title}\n\nThis is a placeholder report for hackathon mode.\n"
+    # Build comprehensive context from sections
+    sections = sp.sections_json or {}
+    section_map = sections.get("sections", {})
+    abstract = sections.get("abstract", sp.paper.abstract)
+
+    context_parts = [f"Paper Title: {sp.paper.title}"]
+    if abstract:
+        context_parts.append(f"Abstract:\n{abstract}")
+    for key in sections.get("section_order", []):
+        if key in section_map:
+            sec = section_map[key]
+            # Limit each section to 500 chars for token budget
+            text = sec["text"][:500]
+            context_parts.append(f"{sec['heading']}:\n{text}")
+
+    report_text = generate_answer(
+        provider=settings.llm_provider,
+        api_key=settings.llm_api_key,
+        model=settings.llm_model,
+        question=(
+            "Generate a structured research paper report in Markdown format. Include:\n"
+            "1. **Title and Overview** — one paragraph summary\n"
+            "2. **Key Findings** — bullet points of main results\n"
+            "3. **Methodology** — brief description of methods used\n"
+            "4. **Conclusions** — what the paper concludes\n"
+            "5. **Strengths & Limitations** — brief assessment\n"
+            "Format as clean Markdown with headers."
+        ),
+        contexts=context_parts,
+    )
+
+    md = f"# Report: {sp.paper.title}\n\n{report_text}"
     return {"report_markdown": md, "new_balance": new_balance}
 
 
