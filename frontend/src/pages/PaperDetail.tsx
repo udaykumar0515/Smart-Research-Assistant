@@ -19,6 +19,7 @@ export function PaperDetail() {
   const [multiPaperMode, setMultiPaperMode] = useState(false);
   const [currentPaperId, setCurrentPaperId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [expandedPaperId, setExpandedPaperId] = useState<string | null>(null);
   const chatAbortRef = useRef<AbortController | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -148,15 +149,15 @@ export function PaperDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F7FB]">
-      <div className="w-full px-8 py-6">
-        <div className="flex gap-4 min-h-[calc(100vh-8rem)]">
-          {/* Left Panel - Paper Metadata */}
-          <div className="w-[260px] flex-shrink-0">
+    <div className="h-[calc(100vh-4rem)] bg-[#F6F7FB] overflow-hidden">
+      <div className="w-full px-8 py-4 h-full">
+        <div className="flex gap-4 h-full">
+          {/* Left Panel - Paper Selection */}
+          <div className="w-[260px] flex-shrink-0 overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="bg-white rounded-xl shadow-lg p-6 h-fit"
+              className="bg-white rounded-xl shadow-lg p-5 h-fit"
             >
               {/* Multi-Paper Mode Toggle */}
               {state.papers.length > 1 && (
@@ -177,7 +178,7 @@ export function PaperDetail() {
                 </div>
               )}
 
-              {/* Paper Selector */}
+              {/* Paper Selector Dropdown */}
               {state.papers.length > 1 && (
                 <div className="mb-4">
                   <div className="relative paper-selector">
@@ -234,36 +235,40 @@ export function PaperDetail() {
                 </div>
               )}
 
-              {/* Selected Papers Display (multi-mode) */}
-              {multiPaperMode && selectedPapers.length > 0 && (
-                <div className="mb-4">
-                  <div className="text-xs text-gray-600 mb-2">Selected Papers:</div>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {selectedPapers.map((p) => (
-                      <div key={p.paper_id} className="text-xs bg-gray-50 p-2 rounded truncate">
-                        {p.title}
-                      </div>
-                    ))}
+              {/* Selected/Active Papers — clickable with expandable abstract */}
+              <div className="space-y-1">
+                <div className="text-xs text-gray-500 mb-2">
+                  {multiPaperMode ? 'Selected Papers' : 'Active Paper'}
+                </div>
+                {(multiPaperMode ? selectedPapers : [paper]).map((p) => (
+                  <div key={p.paper_id}>
+                    <button
+                      onClick={() => setExpandedPaperId(expandedPaperId === p.paper_id ? null : p.paper_id)}
+                      className={`w-full text-left p-2.5 rounded-lg transition-colors flex items-center gap-2 ${
+                        expandedPaperId === p.paper_id
+                          ? 'bg-[#EEF6F4] text-[#1ABC9C]'
+                          : 'bg-gray-50 hover:bg-gray-100 text-[#222222]'
+                      }`}
+                    >
+                      <FileText size={14} className="flex-shrink-0" />
+                      <span className="text-xs font-medium truncate flex-1">{p.title}</span>
+                      <ChevronDown
+                        size={12}
+                        className={`flex-shrink-0 transition-transform ${expandedPaperId === p.paper_id ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {expandedPaperId === p.paper_id && p.abstract && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="bg-gray-50 rounded-b-lg px-3 py-2 text-[11px] text-gray-600 leading-relaxed border-t border-gray-100"
+                      >
+                        <div className="font-medium text-gray-500 mb-1">Abstract:</div>
+                        {p.abstract}
+                      </motion.div>
+                    )}
                   </div>
-                </div>
-              )}
-
-              <h2 className="text-xl font-semibold text-[#222222] mb-3">
-                {paper.title}
-              </h2>
-
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-2">Abstract:</p>
-                <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-700 line-clamp-6">
-                  {paper.abstract}
-                </div>
-              </div>
-
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex items-center justify-between">
-                  <span>Pages</span>
-                  <span className="font-medium text-[#222222]">{paper.pages}</span>
-                </div>
+                ))}
               </div>
             </motion.div>
           </div>
@@ -275,7 +280,7 @@ export function PaperDetail() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-xl shadow-lg h-full flex flex-col"
             >
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[calc(100vh-16rem)]">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {messages.length === 0 ? (
                   <div className="text-center text-gray-500 mt-12">
                     <FileText size={32} className="mx-auto mb-3 opacity-50" />

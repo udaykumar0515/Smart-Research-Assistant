@@ -26,7 +26,6 @@ export function UpdatesPanel({ paper, selectedPapers = [], multiPaperMode = fals
     setIsGeneratingReport(true);
     try {
       if (reportPaperId === 'all' && multiPaperMode) {
-        // Generate reports for all selected papers and combine
         const parts: string[] = [];
         for (const p of activePapers) {
           const res = await backendApi.generateReport(p.paper_id);
@@ -35,7 +34,9 @@ export function UpdatesPanel({ paper, selectedPapers = [], multiPaperMode = fals
           }
         }
         if (parts.length > 0) {
-          setReportMarkdown(parts.join('\n\n---\n\n'));
+          const md = parts.join('\n\n---\n\n');
+          setReportMarkdown(md);
+          sessionStorage.setItem('report_markdown', md);
           toast.success('Combined report generated');
         } else {
           toast.error('No report content received');
@@ -45,6 +46,7 @@ export function UpdatesPanel({ paper, selectedPapers = [], multiPaperMode = fals
         const res = await backendApi.generateReport(targetId);
         if (res.report_markdown) {
           setReportMarkdown(res.report_markdown);
+          sessionStorage.setItem('report_markdown', res.report_markdown);
           toast.success('Report generated');
         } else {
           toast.error('No report content received');
@@ -60,12 +62,14 @@ export function UpdatesPanel({ paper, selectedPapers = [], multiPaperMode = fals
 
   const handleDownloadPdf = () => {
     if (!reportMarkdown) return;
-    // Create a printable HTML document and trigger browser print-to-PDF
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error('Please allow popups for PDF download');
       return;
     }
+    // Render markdown to a temp div to get HTML
+    const reportArea = document.querySelector('.report-render-area');
+    const renderedHtml = reportArea?.innerHTML || `<pre>${reportMarkdown}</pre>`;
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -80,19 +84,14 @@ export function UpdatesPanel({ paper, selectedPapers = [], multiPaperMode = fals
           p { margin: 8px 0; }
           ul, ol { padding-left: 24px; }
           strong { color: #1F3A93; }
-          code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
-          blockquote { border-left: 3px solid #1ABC9C; padding-left: 12px; color: #555; margin: 12px 0; }
+          @media print { body { padding: 20px; } }
         </style>
       </head>
-      <body>
-        ${document.querySelector('.report-render-area')?.innerHTML || '<p>Report content</p>'}
-      </body>
+      <body>${renderedHtml}</body>
       </html>
     `);
     printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
+    setTimeout(() => printWindow.print(), 500);
   };
 
   return (
@@ -175,27 +174,26 @@ export function UpdatesPanel({ paper, selectedPapers = [], multiPaperMode = fals
         )}
       </button>
 
-      {/* Report Display */}
+      {/* Report Preview (compact) */}
       {reportMarkdown && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="mt-4"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-600">Report:</span>
-            <button
-              onClick={handleDownloadPdf}
-              className="flex items-center gap-1 text-xs text-[#1F3A93] hover:text-[#1ABC9C] transition-colors"
-              title="Download as PDF"
-            >
-              <Download size={13} />
-              PDF
-            </button>
+          <div className="text-xs font-medium text-gray-600 mb-2">Report Preview:</div>
+          <div className="bg-[#F8F9FA] rounded-lg p-3 max-h-[200px] overflow-hidden relative prose prose-sm max-w-none prose-headings:text-[#1F3A93] prose-headings:text-xs prose-p:text-[11px] prose-p:text-gray-600 prose-li:text-[11px] prose-li:text-gray-600">
+            <ReactMarkdown>{reportMarkdown.slice(0, 600)}</ReactMarkdown>
+            {/* Fade overlay */}
+            <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#F8F9FA] to-transparent" />
           </div>
-          <div className="report-render-area bg-[#F8F9FA] rounded-lg p-4 max-h-[60vh] overflow-y-auto prose prose-sm max-w-none prose-headings:text-[#1F3A93] prose-headings:text-sm prose-p:text-xs prose-p:text-gray-700 prose-li:text-xs prose-li:text-gray-700 prose-strong:text-[#222222]">
-            <ReactMarkdown>{reportMarkdown}</ReactMarkdown>
-          </div>
+          <button
+            onClick={handleDownloadPdf}
+            className="w-full mt-2 flex items-center justify-center gap-2 bg-[#1F3A93] text-white text-xs py-2 px-3 rounded-lg hover:bg-[#1a2f7a] transition-colors font-medium"
+          >
+            <Download size={13} />
+            Download PDF
+          </button>
         </motion.div>
       )}
     </div>

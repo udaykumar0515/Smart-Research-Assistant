@@ -5,6 +5,7 @@ import { Toast } from './components/Common/Toast';
 import { Landing } from './pages/Landing';
 import { Dashboard } from './pages/Dashboard';
 import { PaperDetail } from './pages/PaperDetail';
+import { ReportPage } from './pages/ReportPage';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/paper/:paperId" element={<PaperDetail />} />
+            <Route path="/report/:paperId" element={<ReportPage />} />
           </Routes>
           <Toast />
         </div>
