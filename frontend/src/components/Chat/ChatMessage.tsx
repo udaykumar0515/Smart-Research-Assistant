@@ -1,10 +1,32 @@
 import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage as ChatMessageType } from '../../types';
-import { CitationChip } from './CitationChip';
 
 interface ChatMessageProps {
   message: ChatMessageType;
+}
+
+/**
+ * Highlights paper title references like [Paper Title] or **[Paper Title]**
+ * with a styled badge inside rendered markdown.
+ */
+function highlightPaperRefs(text: string, paperTitles: string[]): string {
+  if (!paperTitles.length) return text;
+  let result = text;
+  for (const title of paperTitles) {
+    // Match patterns like [title], **[title]**, **title**
+    const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Replace **[Title]** or [Title] with a highlighted version
+    result = result.replace(
+      new RegExp(`\\*\\*\\[${escaped}\\]\\*\\*`, 'g'),
+      `**📄 ${title}**`
+    );
+    result = result.replace(
+      new RegExp(`\\[${escaped}\\]`, 'g'),
+      `**📄 ${title}**`
+    );
+  }
+  return result;
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
@@ -24,14 +46,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
   const hasAnswer = Boolean(message.answer);
 
-  const getHostname = (url?: string) => {
-    if (!url) return '';
-    try {
-      return new URL(url).hostname;
-    } catch {
-      return '';
-    }
-  };
+  // Collect paper titles from citations for highlighting
+  const paperTitles = message.answer?.citations
+    ?.filter(c => c.type === 'paper' && c.title)
+    .map(c => c.title!) || [];
+
+  // Process answer text to highlight paper references
+  const processedAnswer = hasAnswer && message.answer!.answer
+    ? highlightPaperRefs(message.answer!.answer, paperTitles)
+    : message.content;
 
   return (
     <motion.div
@@ -39,36 +62,42 @@ export function ChatMessage({ message }: ChatMessageProps) {
       animate={{ opacity: 1, x: 0 }}
       className="flex justify-start mb-4"
     >
-      <div className="bg-white border border-gray-200 rounded-xl p-4 max-w-lg shadow-sm">
-        <div className="text-[#222222] mb-3 leading-relaxed text-sm prose prose-sm max-w-none prose-headings:text-[#1F3A93] prose-strong:text-[#222222]">
+      <div className="bg-white border border-gray-200 rounded-xl p-4 max-w-2xl shadow-sm w-full">
+        {/* Answer content with markdown rendering */}
+        <div className="text-[#222222] mb-3 leading-relaxed text-sm prose prose-sm max-w-none prose-headings:text-[#1F3A93] prose-strong:text-[#1F3A93]">
           {hasAnswer ? (
-            <ReactMarkdown>{message.answer!.answer}</ReactMarkdown>
+            <ReactMarkdown>{processedAnswer}</ReactMarkdown>
           ) : (
             <p>{message.content}</p>
           )}
         </div>
 
+        {/* Answer metadata + paper badges */}
         {hasAnswer && (
-          <div className="text-xs text-gray-400 mb-3 border-t border-gray-100 pt-2">
-            {message.answer!.type === 'retrieval' ? '📄 From paper' : '🧠 AI-synthesized'}{message.answer!.used_llm ? ' · LLM' : ''}
-          </div>
-        )}
-        
-        {/* Sources section */}
-        {message.answer?.citations && message.answer.citations.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-gray-600">Sources:</div>
-            <div className="space-y-1">
-              {message.answer.citations.map((citation, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <CitationChip citation={citation} />
-                  <span className="text-xs text-gray-500">
-                    {citation.type === 'paper'
-                      ? `Paper — p.${citation.page ?? '-'}`
-                      : `${citation.title ?? 'News'}${getHostname(citation.url) ? ` — ${getHostname(citation.url)}` : ''}`}
-                  </span>
-                </div>
-              ))}
+          <div className="border-t border-gray-100 pt-3 mt-2">
+            <div className="flex items-center flex-wrap gap-2">
+              {/* Answer type badge */}
+              <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                {message.answer!.type === 'retrieval' ? '📄 From paper' : '🧠 AI-synthesized'}
+                {message.answer!.used_llm && ' · LLM'}
+              </span>
+
+              {/* Paper citation badges (inline, no popup) */}
+              {message.answer!.citations && message.answer!.citations.length > 0 && (
+                <>
+                  <span className="text-xs text-gray-400">|</span>
+                  {message.answer!.citations
+                    .filter(c => c.type === 'paper')
+                    .map((citation, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center gap-1 text-xs bg-[#EEF6F4] text-[#1ABC9C] px-2.5 py-1 rounded-full font-medium border border-[#1ABC9C] border-opacity-30"
+                      >
+                        📄 {citation.title || 'Paper'}
+                      </span>
+                    ))}
+                </>
+              )}
             </div>
           </div>
         )}

@@ -150,9 +150,9 @@ export function PaperDetail() {
   return (
     <div className="min-h-screen bg-[#F6F7FB]">
       <div className="max-w-7xl mx-auto p-6">
-        <div className="flex gap-6 min-h-[calc(100vh-8rem)]">
-          {/* Left Panel - Paper Metadata (25%) */}
-          <div className="w-1/4">
+        <div className="flex gap-5 min-h-[calc(100vh-8rem)]">
+          {/* Left Panel - Paper Metadata */}
+          <div className="w-[22%] flex-shrink-0">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -268,8 +268,8 @@ export function PaperDetail() {
             </motion.div>
           </div>
 
-          {/* Center Panel - Chat (60%) */}
-          <div className="flex-1">
+          {/* Center Panel - Chat */}
+          <div className="flex-1 min-w-0">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -317,14 +317,18 @@ export function PaperDetail() {
             </motion.div>
           </div>
 
-          {/* Right Panel - Report & Info (15%) */}
-          <div className="w-1/6">
+          {/* Right Panel - Paper Tools & Report */}
+          <div className="w-[26%] flex-shrink-0">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               className="h-full"
             >
-              <UpdatesPanel paper={paper} />
+              <UpdatesPanel
+                paper={paper}
+                selectedPapers={selectedPapers}
+                multiPaperMode={multiPaperMode}
+              />
             </motion.div>
           </div>
         </div>
