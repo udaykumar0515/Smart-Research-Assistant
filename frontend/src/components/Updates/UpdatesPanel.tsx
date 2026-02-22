@@ -196,6 +196,13 @@ export function UpdatesPanel({ paper, selectedPapers = [], multiPaperMode = fals
           </button>
         </motion.div>
       )}
+
+      {/* Hidden full render for PDF download — must render full markdown */}
+      {reportMarkdown && (
+        <div className="report-render-area" style={{ position: 'absolute', left: '-9999px', top: 0, width: '800px' }}>
+          <ReactMarkdown>{reportMarkdown}</ReactMarkdown>
+        </div>
+      )}
     </div>
   );
 }
