@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 
+import fitz  # PyMuPDF — reliable page counting
 from google.api_core.client_options import ClientOptions
 from google.cloud import documentai_v1 as documentai
 
@@ -14,11 +15,16 @@ PAGE_LIMIT = 15  # Max pages per online processing request
 
 
 def _get_pdf_page_count(pdf_bytes: bytes) -> int:
-    """Detect page count from PDF binary content."""
-    count_matches = re.findall(rb"/Count\s+(\d+)", pdf_bytes)
-    if count_matches:
-        return max(int(c) for c in count_matches)
-    return PAGE_LIMIT  # safe fallback
+    """Detect page count from PDF binary content using PyMuPDF."""
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        count = len(doc)
+        doc.close()
+        return count
+    except Exception:
+        # Fallback: try regex (less reliable)
+        count_matches = re.findall(rb"/Type\s*/Page[^s]", pdf_bytes)
+        return len(count_matches) if count_matches else PAGE_LIMIT
 
 
 def _make_client(location: str) -> documentai.DocumentProcessorServiceClient:

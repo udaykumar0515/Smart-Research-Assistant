@@ -19,6 +19,7 @@ interface AppContextType {
 type AppAction =
   | { type: 'SET_PAPERS'; payload: Paper[] }
   | { type: 'ADD_PAPER'; payload: Paper }
+  | { type: 'REMOVE_PAPER'; payload: string }
   | { type: 'SET_CURRENT_PAPER'; payload: Paper | null }
   | { type: 'SET_SELECTED_PAPER'; payload: string | null }
   | { type: 'TOGGLE_PAPER_SELECTION'; payload: string }
@@ -43,8 +44,26 @@ function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_PAPERS':
       return { ...state, papers: action.payload, papersLoaded: true };
-    case 'ADD_PAPER':
+    case 'ADD_PAPER': {
+      // Prevent duplicates — if paper_id already exists, replace it
+      const exists = state.papers.some(p => p.paper_id === action.payload.paper_id);
+      if (exists) {
+        return {
+          ...state,
+          papers: state.papers.map(p =>
+            p.paper_id === action.payload.paper_id ? action.payload : p
+          ),
+        };
+      }
       return { ...state, papers: [...state.papers, action.payload] };
+    }
+    case 'REMOVE_PAPER':
+      return {
+        ...state,
+        papers: state.papers.filter(p => p.paper_id !== action.payload),
+        selectedPaperIds: state.selectedPaperIds.filter(id => id !== action.payload),
+        currentPaper: state.currentPaper?.paper_id === action.payload ? null : state.currentPaper,
+      };
     case 'SET_CURRENT_PAPER':
       return { ...state, currentPaper: action.payload };
     case 'SET_SELECTED_PAPER':

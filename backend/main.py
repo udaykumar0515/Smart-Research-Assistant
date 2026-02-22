@@ -114,11 +114,13 @@ async def chat(req: ChatRequest) -> ChatResponse:
             raise HTTPException(status_code=400, detail="paper_ids required for multi mode")
 
     contexts: list[str] = []
+    paper_titles: list[str] = []
     for pid in paper_ids:
         sp = store.get_paper(pid)
         if sp is None:
             raise HTTPException(status_code=404, detail=f"Paper not found: {pid}")
 
+        paper_titles.append(sp.paper.title)
         sections = sp.sections_json or {}
         section_order = sections.get("section_order", [])
         abstract = sections.get("abstract", "")
@@ -135,7 +137,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
                 headings_summary=headings_summary,
                 section_order=section_order,
             )
-            logger.info("Router selected sections: %s", selected_keys)
+            logger.info("Router selected sections for %s: %s", sp.paper.title, selected_keys)
 
             # ── Build context from selected sections only ──
             parts = []
@@ -152,40 +154,52 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
         contexts.append(context)
 
-    # ── Stage 2: Primary LLM answers ──
-
+    # ── Stage 2: Primary LLM answers with paper labels ──
     answer_text = generate_answer(
         provider=settings.llm_provider,
         api_key=settings.llm_api_key,
         model=settings.llm_model,
         question=req.question,
         contexts=contexts,
+        paper_titles=paper_titles,
     )
 
     llm_active = is_llm_available(settings.llm_provider, settings.llm_api_key)
-    credits_used = 3 if llm_active else 0
-    credits_meta = None
-    if credits_used:
-        ok, new_balance, tx = store.deduct_credits(credits_used)
-        if not ok:
-            raise HTTPException(status_code=402, detail="Insufficient credits")
-        credits_meta = {"deducted": credits_used, "new_balance": new_balance, "transaction_id": tx}
+
+    # Build citations — one per paper used
+    citations = []
+    for i, pid in enumerate(paper_ids):
+        title = paper_titles[i] if i < len(paper_titles) else f"Paper {i+1}"
+        citations.append({
+            "type": "paper",
+            "title": title,
+            "paper_id": pid,
+            "page": None,
+        })
 
     ans = Answer(
         type="synthesis" if req.mode == "multi" else "retrieval",
         answer=answer_text,
-        citations=[],
+        citations=citations,
         used_llm=llm_active,
-        credits_used=credits_used,
+        credits_used=0,
     )
 
-    return ChatResponse(answer=ans, credits=credits_meta)
+    return ChatResponse(answer=ans, credits=None)
 
 
 @app.get(f"{settings.api_prefix}/papers")
 async def list_papers() -> dict:
     papers = store.list_papers()
     return {"papers": [p.model_dump() for p in papers]}
+
+
+@app.delete(f"{settings.api_prefix}/papers/{{paper_id}}")
+async def delete_paper(paper_id: str) -> dict:
+    deleted = store.delete_paper(paper_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Paper not found")
+    return {"deleted": True, "paper_id": paper_id}
 
 
 @app.get(f"{settings.api_prefix}/papers/{{paper_id}}")

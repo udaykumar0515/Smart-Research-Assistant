@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 import { Loader2, FileText } from 'lucide-react';
 import { Paper } from '../../types';
 import { toast } from 'react-hot-toast';
@@ -63,17 +64,15 @@ export function UpdatesPanel({ paper }: UpdatesPanelProps) {
         )}
       </button>
 
-      {/* Report Display */}
+      {/* Report Display — properly rendered markdown */}
       {reportMarkdown && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="mt-4"
         >
-          <div className="bg-[#F8F9FA] rounded-lg p-4 max-h-96 overflow-y-auto">
-            <div className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {reportMarkdown}
-            </div>
+          <div className="bg-[#F8F9FA] rounded-lg p-4 max-h-96 overflow-y-auto prose prose-sm max-w-none prose-headings:text-[#1F3A93] prose-headings:text-sm prose-p:text-xs prose-p:text-gray-700 prose-li:text-xs prose-li:text-gray-700 prose-strong:text-[#222222]">
+            <ReactMarkdown>{reportMarkdown}</ReactMarkdown>
           </div>
         </motion.div>
       )}

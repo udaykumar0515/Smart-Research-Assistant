@@ -81,3 +81,25 @@ export async function apiForm<T>(path: string, formData: FormData, options: Omit
 
   return payload as T;
 }
+
+export async function apiDelete<T>(path: string, options: Omit<RequestOptions, 'body'> = {}): Promise<T> {
+  const res = await fetch(buildUrl(path), {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers ?? {})
+    },
+    signal: options.signal
+  });
+
+  const contentType = res.headers.get('content-type') ?? '';
+  const isJson = contentType.includes('application/json');
+  const payload = isJson ? await res.json().catch(() => undefined) : await res.text().catch(() => undefined);
+
+  if (!res.ok) {
+    const message = getErrorMessage(payload, res.status);
+    throw new ApiError(message, res.status, payload);
+  }
+
+  return payload as T;
+}

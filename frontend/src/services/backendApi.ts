@@ -1,4 +1,4 @@
-import { apiForm, apiJson } from './apiClient';
+import { apiForm, apiJson, apiDelete } from './apiClient';
 import { Answer, NewsItem, Paper } from '../types';
 
 export type UploadPaperResponse = {
@@ -26,6 +26,10 @@ export const backendApi = {
     form.append('file', file);
     form.append('create_subscription', String(createSubscription));
     return apiForm<UploadPaperResponse>('/papers/upload', form, { signal });
+  },
+
+  deletePaper: async (paperId: string, signal?: AbortSignal): Promise<{ deleted: boolean }> => {
+    return apiDelete<{ deleted: boolean }>(`/papers/${encodeURIComponent(paperId)}`, { signal });
   },
 
   getPaperDetails: async (paperId: string, signal?: AbortSignal): Promise<Record<string, unknown>> => {

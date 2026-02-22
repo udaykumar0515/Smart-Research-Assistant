@@ -137,6 +137,21 @@ class Storage:
             rows = conn.execute("select paper_json from papers").fetchall()
             return [Paper.model_validate_json(r[0]) for r in rows]
 
+    def delete_paper(self, paper_id: str) -> bool:
+        with self._connect() as conn:
+            row = conn.execute("select file_path from papers where paper_id=?", (paper_id,)).fetchone()
+            if row is None:
+                return False
+            file_path = row["file_path"]
+            conn.execute("delete from papers where paper_id=?", (paper_id,))
+            # Remove PDF file from disk
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass
+            return True
+
     def get_credits_balance(self) -> int:
         with self._connect() as conn:
             row = conn.execute("select balance from credits where id=1").fetchone()

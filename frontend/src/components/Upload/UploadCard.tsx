@@ -16,6 +16,8 @@ export function UploadCard() {
   const [fileName, setFileName] = useState('');
   const [lastUploadedPaper, setLastUploadedPaper] = useState<Paper | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadInProgressRef = useRef(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -41,9 +43,17 @@ export function UploadCard() {
     if (files && files.length > 0) {
       handleFileUpload(files[0]);
     }
+    // Reset the file input so the same file can be re-selected if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleFileUpload = async (file: File) => {
+    // Prevent duplicate uploads
+    if (uploadInProgressRef.current) return;
+    uploadInProgressRef.current = true;
+
     uploadAbortRef.current?.abort();
     const controller = new AbortController();
     uploadAbortRef.current = controller;
@@ -67,12 +77,13 @@ export function UploadCard() {
       setIsUploaded(false);
     } finally {
       setIsUploading(false);
+      uploadInProgressRef.current = false;
     }
   };
 
   const handleUploadClick = () => {
     if (!isUploaded) {
-      document.getElementById('file-input')?.click();
+      fileInputRef.current?.click();
     }
   };
 
@@ -80,6 +91,13 @@ export function UploadCard() {
     if (lastUploadedPaper) {
       navigate(`/paper/${lastUploadedPaper.paper_id}`);
     }
+  };
+
+  const handleUploadAnother = () => {
+    setIsUploaded(false);
+    setFileName('');
+    setLastUploadedPaper(null);
+    fileInputRef.current?.click();
   };
 
   return (
@@ -98,102 +116,78 @@ export function UploadCard() {
       >
         <div className="space-y-6">
           <div className="flex justify-center">
-            {isUploaded ? (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="text-[#1ABC9C]"
-              >
-                <Check size={48} />
-              </motion.div>
-            ) : (
-              <div className="text-6xl">📄</div>
-            )}
+            <div className="bg-[#EEF6F4] rounded-full p-4">
+              {isUploading ? (
+                <Loader2 size={40} className="text-[#1ABC9C] animate-spin" />
+              ) : isUploaded ? (
+                <Check size={40} className="text-[#1ABC9C]" />
+              ) : (
+                <FileText size={40} className="text-[#1ABC9C]" />
+              )}
+            </div>
           </div>
           
           <div>
-            <h3 className="text-2xl font-semibold text-[#222222] mb-2">
-              Upload research paper
-            </h3>
-            <p className="text-gray-600 text-lg">
-              {isUploading ? 'Processing with AI…' : isUploaded ? `Uploaded: ${fileName}` : 'Drag & drop PDF or click to upload'}
-            </p>
+            {isUploading ? (
+              <>
+                <p className="text-lg font-medium text-[#222222]">Uploading & extracting…</p>
+                <p className="text-sm text-gray-500 mt-1">{fileName}</p>
+              </>
+            ) : isUploaded && lastUploadedPaper ? (
+              <>
+                <p className="text-lg font-medium text-[#222222]">{lastUploadedPaper.title}</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {lastUploadedPaper.pages} pages extracted
+                  {lastUploadedPaper.abstract ? ` · ${lastUploadedPaper.abstract.slice(0, 80)}…` : ''}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-medium text-[#222222]">Upload research paper</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Drag & drop a PDF here, or click to browse
+                </p>
+              </>
+            )}
           </div>
 
-          <input
-            id="file-input"
-            type="file"
-            accept=".pdf"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-
-          <div className="space-y-2">
-            <button
-              onClick={handleUploadClick}
-              disabled={isUploaded || isUploading}
-              className={`w-full px-6 py-3 rounded-lg font-medium shadow-sm transition-all ${
-                isUploaded
-                  ? 'bg-[#1ABC9C] text-white cursor-default'
-                  : 'bg-[#1F3A93] text-white hover:bg-[#1a2f7a] hover:shadow-lg active:scale-95'
-              }`}
-            >
-              {isUploading ? (
-                <span className="inline-flex items-center justify-center w-full">
-                  <Loader2 size={18} className="animate-spin mr-2" />
-                  Extracting text & analyzing…
-                </span>
-              ) : isUploaded ? 'Upload Completed ✓' : 'Upload research paper'}
-            </button>
-            
-            {isUploaded && (
-              <div className="flex gap-2">
+          <div>
+            {isUploaded ? (
+              <div className="flex gap-3 justify-center">
                 <button
                   onClick={handleOpenPaper}
-                  className="flex-1 px-4 py-2 text-sm bg-[#1F3A93] text-white rounded-lg hover:bg-[#1a2f7a] transition-colors font-medium"
+                  className="bg-[#1F3A93] text-white px-5 py-2.5 rounded-lg hover:bg-[#1a2f7a] transition-colors text-sm font-medium"
                 >
                   Chat with Paper →
                 </button>
                 <button
-                  onClick={() => {
-                    setIsUploaded(false);
-                    setFileName('');
-                    setLastUploadedPaper(null);
-                  }}
-                  className="flex-1 px-4 py-2 text-sm text-[#1F3A93] border border-[#1F3A93] rounded-lg hover:bg-[#1F3A93] hover:text-white transition-colors"
+                  onClick={handleUploadAnother}
+                  className="bg-gray-100 text-[#222222] px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
                 >
                   Upload Another
                 </button>
               </div>
+            ) : (
+              <button
+                onClick={handleUploadClick}
+                disabled={isUploading}
+                className="bg-[#1F3A93] text-white px-6 py-2.5 rounded-lg hover:bg-[#1a2f7a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {isUploading ? 'Uploading…' : 'Select PDF'}
+              </button>
             )}
           </div>
+
+          <input
+            ref={fileInputRef}
+            id="file-input"
+            type="file"
+            accept=".pdf"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
         </div>
       </motion.div>
-
-      {isUploaded && lastUploadedPaper && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl shadow-lg p-6 border border-gray-200"
-        >
-          <div className="flex items-start space-x-4">
-            <FileText className="text-[#1F3A93] mt-1" size={24} />
-            <div className="flex-1">
-              <h4 className="font-semibold text-[#222222] mb-2">
-                {lastUploadedPaper.title}
-              </h4>
-              <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                {lastUploadedPaper.abstract}
-              </p>
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
-                  {lastUploadedPaper.pages} pages
-                </span>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 }

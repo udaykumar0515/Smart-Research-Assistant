@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 import { ChatMessage as ChatMessageType } from '../../types';
 import { CitationChip } from './CitationChip';
 
@@ -39,9 +40,13 @@ export function ChatMessage({ message }: ChatMessageProps) {
       className="flex justify-start mb-4"
     >
       <div className="bg-white border border-gray-200 rounded-xl p-4 max-w-lg shadow-sm">
-        <p className="text-[#222222] mb-3 leading-relaxed text-sm whitespace-pre-wrap">
-          {hasAnswer ? message.answer!.answer : message.content}
-        </p>
+        <div className="text-[#222222] mb-3 leading-relaxed text-sm prose prose-sm max-w-none prose-headings:text-[#1F3A93] prose-strong:text-[#222222]">
+          {hasAnswer ? (
+            <ReactMarkdown>{message.answer!.answer}</ReactMarkdown>
+          ) : (
+            <p>{message.content}</p>
+          )}
+        </div>
 
         {hasAnswer && (
           <div className="text-xs text-gray-400 mb-3 border-t border-gray-100 pt-2">

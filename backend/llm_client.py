@@ -16,7 +16,8 @@ _NOT_CONFIGURED_MSG = (
     "LLM is not configured. Set LLM_PROVIDER, LLM_API_KEY, and LLM_MODEL in .env to enable AI answers."
 )
 
-MAX_CONTEXT_CHARS = 6000  # ~2000 tokens, safe for 8B models on free tiers
+MAX_CONTEXT_CHARS = 12000  # ~4000 tokens — enough for 2-3 papers
+MAX_PER_PAPER_CHARS = 5000  # Ensure each paper gets fair representation
 
 
 def is_available(provider: str, api_key: str) -> bool:
@@ -93,23 +94,60 @@ def generate_answer(
     model: str,
     question: str,
     contexts: Iterable[str],
+    paper_titles: list[str] | None = None,
 ) -> str:
-    """Generate an answer using the configured LLM provider."""
+    """Generate an answer using the configured LLM provider.
+
+    Args:
+        contexts: list of text contexts (one per paper)
+        paper_titles: optional list of paper titles (same order as contexts)
+    """
     if not is_available(provider, api_key):
         return _NOT_CONFIGURED_MSG
 
-    joined_context = "\n\n".join([c for c in contexts if c])
+    context_list = list(contexts)
+    titles = paper_titles or [f"Paper {i+1}" for i in range(len(context_list))]
+    is_multi = len(context_list) > 1
 
+    # Build labeled context — each paper clearly identified
+    labeled_parts: list[str] = []
+    for i, (title, ctx) in enumerate(zip(titles, context_list)):
+        if not ctx:
+            continue
+        # Truncate per-paper to ensure fair representation
+        truncated = ctx[:MAX_PER_PAPER_CHARS]
+        if len(ctx) > MAX_PER_PAPER_CHARS:
+            truncated += "\n[... truncated ...]"
+        labeled_parts.append(f"=== [{title}] ===\n{truncated}")
+
+    joined_context = "\n\n".join(labeled_parts)
+
+    # Final safety check on total length
     if len(joined_context) > MAX_CONTEXT_CHARS:
-        logger.info("Truncating context from %d to %d chars", len(joined_context), MAX_CONTEXT_CHARS)
+        logger.info("Truncating total context from %d to %d chars", len(joined_context), MAX_CONTEXT_CHARS)
         joined_context = joined_context[:MAX_CONTEXT_CHARS] + "\n\n[... text truncated for token limit ...]"
 
-    prompt = (
-        "You are a research assistant. Answer the user question using the provided paper text. "
-        "If you cannot find it in the text, say you are not sure.\n\n"
-        f"Question: {question}\n\n"
-        f"Paper Text:\n{joined_context}"
-    )
+    if is_multi:
+        prompt = (
+            "You are a research assistant analyzing MULTIPLE research papers. "
+            "Answer the user's question using the provided paper texts.\n\n"
+            "IMPORTANT RULES:\n"
+            "- When referencing information, ALWAYS cite which paper it comes from using **[Paper Title]** format\n"
+            "- Compare and contrast findings across papers when relevant\n"
+            "- If information is only in one paper, clearly state which one\n"
+            "- Structure your answer with clear sections if the question is broad\n"
+            "- If you cannot find information in the papers, say so\n\n"
+            f"Question: {question}\n\n"
+            f"Papers:\n{joined_context}"
+        )
+    else:
+        prompt = (
+            "You are a research assistant. Answer the user's question using the provided paper text. "
+            "Be thorough and cite specific sections or findings. "
+            "If you cannot find the answer in the text, say you are not sure.\n\n"
+            f"Question: {question}\n\n"
+            f"Paper Text:\n{joined_context}"
+        )
 
     provider_lower = provider.strip().lower()
 

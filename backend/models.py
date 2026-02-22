@@ -51,7 +51,7 @@ class Paper(BaseModel):
 
 class Citation(BaseModel):
     type: Literal["paper", "news"]
-    snippet: str
+    snippet: str = ""
     paper_id: str | None = None
     page: int | None = None
     id: str | None = None

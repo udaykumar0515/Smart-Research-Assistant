@@ -14,7 +14,7 @@ export interface Citation {
   type: 'paper' | 'news';
   paper_id?: string;
   page?: number;
-  snippet: string;
+  snippet?: string;
   id?: string;
   title?: string;
   url?: string;
