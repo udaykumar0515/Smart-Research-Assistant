@@ -39,13 +39,13 @@ export function ChatMessage({ message }: ChatMessageProps) {
       className="flex justify-start mb-4"
     >
       <div className="bg-white border border-gray-200 rounded-xl p-4 max-w-lg shadow-sm">
-        <p className="text-[#222222] mb-3 leading-relaxed text-sm">
+        <p className="text-[#222222] mb-3 leading-relaxed text-sm whitespace-pre-wrap">
           {hasAnswer ? message.answer!.answer : message.content}
         </p>
 
         {hasAnswer && (
-          <div className="text-xs text-gray-500 mb-3 border-t border-gray-100 pt-2">
-            Method: {message.answer!.type === 'retrieval' ? 'Retrieval' : 'Synthesis'} — {message.answer!.credits_used} credits.
+          <div className="text-xs text-gray-400 mb-3 border-t border-gray-100 pt-2">
+            {message.answer!.type === 'retrieval' ? '📄 From paper' : '🧠 AI-synthesized'}{message.answer!.used_llm ? ' · LLM' : ''}
           </div>
         )}
         

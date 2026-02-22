@@ -1,6 +1,5 @@
-import React from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Bell, MessageCircle } from 'lucide-react';
+import { FileText, MessageCircle } from 'lucide-react';
 import { Paper } from '../../types';
 
 interface PaperCardProps {
@@ -36,34 +35,17 @@ export function PaperCard({
           <h3 className={`font-semibold text-[#222222] mb-2 ${compact ? 'text-sm' : 'text-base'} truncate`}>
             {paper.title}
           </h3>
-          <p className={`text-gray-600 mb-3 ${compact ? 'text-xs' : 'text-sm'}`}>
-            By: {paper.authors.join(', ')}
-          </p>
           
-          <div className="flex flex-wrap gap-2 text-xs mb-3">
-            <span className={`px-3 py-1 rounded-full border ${
-              paper.subscription_enabled 
-                ? 'bg-[#EEF6F4] text-[#1ABC9C] border-[#1ABC9C]' 
-                : 'bg-gray-100 text-gray-600 border-gray-300'
-            }`}>
-              Subscription: {paper.subscription_enabled ? 'ON' : 'OFF'}
-            </span>
+          <div className="flex flex-wrap gap-2 text-xs mb-2">
             <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full border border-gray-300">
-              Pages: {paper.pages}
+              {paper.pages} pages
             </span>
           </div>
 
-          {paper.updates_count > 0 && (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="flex items-center space-x-2 text-sm text-[#1ABC9C]"
-            >
-              <Bell size={16} className="animate-pulse" />
-              <span className="font-medium bg-[#1ABC9C] text-white px-2 py-1 rounded-full">
-                {paper.updates_count} new update{paper.updates_count !== 1 ? 's' : ''}
-              </span>
-            </motion.div>
+          {!compact && paper.abstract && (
+            <p className="text-xs text-gray-500 line-clamp-2">
+              {paper.abstract}
+            </p>
           )}
         </div>
       </div>
@@ -78,7 +60,7 @@ export function PaperCard({
             className="w-full bg-[#1F3A93] text-white px-4 py-2 rounded-lg hover:bg-[#1a2f7a] transition-colors flex items-center justify-center space-x-2 shadow-sm hover:shadow-md"
           >
             <MessageCircle size={16} />
-            <span>Open Paper</span>
+            <span>Chat with Paper</span>
           </button>
         </div>
       )}

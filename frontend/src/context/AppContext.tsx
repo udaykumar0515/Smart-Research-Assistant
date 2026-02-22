@@ -1,29 +1,23 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { Paper, ChatMessage, UsageEntry, NewsItem } from '../types';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { Paper, ChatMessage, NewsItem } from '../types';
 import { backendApi } from '../services/backendApi';
 
 interface AppState {
-  credits: number;
   papers: Paper[];
   currentPaper: Paper | null;
   selectedPaperId: string | null;
   selectedPaperIds: string[];
   chatMessages: ChatMessage[];
-  usageEntries: UsageEntry[];
-  isProcessingCredits: boolean;
-  lastTransactionId: string | null;
+  papersLoaded: boolean;
 }
 
 interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
-  deductCredits: (amount: number, reason: string) => Promise<boolean>;
-  purchaseCredits: (amount: number) => Promise<boolean>;
 }
 
 type AppAction =
-  | { type: 'SET_CREDITS'; payload: number }
-  | { type: 'DEDUCT_CREDITS'; payload: number }
+  | { type: 'SET_PAPERS'; payload: Paper[] }
   | { type: 'ADD_PAPER'; payload: Paper }
   | { type: 'SET_CURRENT_PAPER'; payload: Paper | null }
   | { type: 'SET_SELECTED_PAPER'; payload: string | null }
@@ -31,32 +25,24 @@ type AppAction =
   | { type: 'SET_MULTI_PAPER_MODE'; payload: boolean }
   | { type: 'ADD_CHAT_MESSAGE'; payload: ChatMessage }
   | { type: 'CLEAR_CHAT_MESSAGES'; payload: void }
-  | { type: 'ADD_USAGE_ENTRY'; payload: UsageEntry }
   | { type: 'UPDATE_PAPER_UPDATES'; payload: { paperId: string; updates: NewsItem[] } }
-  | { type: 'MARK_UPDATE_SUMMARIZED'; payload: { paperId: string; updateId: string; summary: string } }
-  | { type: 'SET_PROCESSING_CREDITS'; payload: boolean }
-  | { type: 'SET_LAST_TRANSACTION_ID'; payload: string | null };
+  | { type: 'MARK_UPDATE_SUMMARIZED'; payload: { paperId: string; updateId: string; summary: string } };
 
 const initialState: AppState = {
-  credits: parseInt(localStorage.getItem('smart-research-credits') || '18', 10),
   papers: [],
   currentPaper: null,
   selectedPaperId: null,
   selectedPaperIds: [],
   chatMessages: [],
-  usageEntries: [],
-  isProcessingCredits: false,
-  lastTransactionId: null
+  papersLoaded: false,
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
-    case 'SET_CREDITS':
-      return { ...state, credits: action.payload };
-    case 'DEDUCT_CREDITS':
-      return { ...state, credits: Math.max(0, state.credits - action.payload) };
+    case 'SET_PAPERS':
+      return { ...state, papers: action.payload, papersLoaded: true };
     case 'ADD_PAPER':
       return { ...state, papers: [...state.papers, action.payload] };
     case 'SET_CURRENT_PAPER':
@@ -83,8 +69,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, chatMessages: [...state.chatMessages, action.payload] };
     case 'CLEAR_CHAT_MESSAGES':
       return { ...state, chatMessages: [] };
-    case 'ADD_USAGE_ENTRY':
-      return { ...state, usageEntries: [...state.usageEntries, action.payload] };
     case 'UPDATE_PAPER_UPDATES':
       return {
         ...state,
@@ -123,10 +107,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
             }
           : state.currentPaper
       };
-    case 'SET_PROCESSING_CREDITS':
-      return { ...state, isProcessingCredits: action.payload };
-    case 'SET_LAST_TRANSACTION_ID':
-      return { ...state, lastTransactionId: action.payload };
     default:
       return state;
   }
@@ -135,52 +115,20 @@ function appReducer(state: AppState, action: AppAction): AppState {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  const deductCredits = async (amount: number, reason: string): Promise<boolean> => {
-    try {
-      dispatch({ type: 'SET_PROCESSING_CREDITS', payload: true });
-
-      const response = await backendApi.deductCredits({ amount, reason });
-
-      if (!response.success) {
-        throw new Error(response.message || 'Credits deduction failed');
-      }
-
-      dispatch({ type: 'SET_CREDITS', payload: response.newBalance });
-      dispatch({ type: 'SET_LAST_TRANSACTION_ID', payload: response.transactionId ?? null });
-      localStorage.setItem('smart-research-credits', response.newBalance.toString());
-      return true;
-    } catch (error) {
-      console.error('Credits deduction failed:', error);
-      return false;
-    } finally {
-      dispatch({ type: 'SET_PROCESSING_CREDITS', payload: false });
-    }
-  };
-
-  const purchaseCredits = async (amount: number): Promise<boolean> => {
-    try {
-      dispatch({ type: 'SET_PROCESSING_CREDITS', payload: true });
-
-      const response = await backendApi.purchaseCredits({ amount });
-
-      if (!response.success) {
-        throw new Error(response.message || 'Credits purchase failed');
-      }
-
-      dispatch({ type: 'SET_CREDITS', payload: response.newBalance });
-      dispatch({ type: 'SET_LAST_TRANSACTION_ID', payload: response.transactionId ?? null });
-      localStorage.setItem('smart-research-credits', response.newBalance.toString());
-      return true;
-    } catch (error) {
-      console.error('Credits purchase failed:', error);
-      return false;
-    } finally {
-      dispatch({ type: 'SET_PROCESSING_CREDITS', payload: false });
-    }
-  };
+  // Load papers from backend on mount (persistence across refresh)
+  useEffect(() => {
+    backendApi.listPapers()
+      .then((res) => {
+        dispatch({ type: 'SET_PAPERS', payload: res.papers });
+      })
+      .catch((err) => {
+        console.error('Failed to load papers from backend:', err);
+        dispatch({ type: 'SET_PAPERS', payload: [] });
+      });
+  }, []);
 
   return (
-    <AppContext.Provider value={{ state, dispatch, deductCredits, purchaseCredits }}>
+    <AppContext.Provider value={{ state, dispatch }}>
       {children}
     </AppContext.Provider>
   );

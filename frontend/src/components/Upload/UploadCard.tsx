@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FileText, Check, Loader2 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
@@ -8,11 +9,11 @@ import toast from 'react-hot-toast';
 
 export function UploadCard() {
   const { dispatch } = useAppContext();
+  const navigate = useNavigate();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState('');
-  const [createSubscription, setCreateSubscription] = useState(true);
   const [lastUploadedPaper, setLastUploadedPaper] = useState<Paper | null>(null);
   const uploadAbortRef = useRef<AbortController | null>(null);
 
@@ -52,23 +53,13 @@ export function UploadCard() {
     setIsUploaded(false);
 
     try {
-      const response = await backendApi.uploadPaper(file, createSubscription, controller.signal);
+      const response = await backendApi.uploadPaper(file, false, controller.signal);
       const newPaper = response.paper;
       setLastUploadedPaper(newPaper);
       setIsUploaded(true);
 
       dispatch({ type: 'ADD_PAPER', payload: newPaper });
-      dispatch({
-        type: 'ADD_USAGE_ENTRY',
-        payload: {
-          timestamp: new Date().toLocaleString(),
-          event: 'Upload Paper',
-          credits_used: 0,
-          details: newPaper.title
-        }
-      });
-
-      toast.success('Paper uploaded successfully');
+      toast.success(`Paper uploaded — ${newPaper.pages} pages extracted`);
     } catch (error: unknown) {
       const err = error as { name?: string; message?: string };
       if (err?.name === 'AbortError') return;
@@ -82,6 +73,12 @@ export function UploadCard() {
   const handleUploadClick = () => {
     if (!isUploaded) {
       document.getElementById('file-input')?.click();
+    }
+  };
+
+  const handleOpenPaper = () => {
+    if (lastUploadedPaper) {
+      navigate(`/paper/${lastUploadedPaper.paper_id}`);
     }
   };
 
@@ -119,19 +116,8 @@ export function UploadCard() {
               Upload research paper
             </h3>
             <p className="text-gray-600 text-lg">
-              {isUploaded ? `Uploaded: ${fileName}` : 'Drag & drop PDF or click to upload'}
+              {isUploading ? 'Processing with AI…' : isUploaded ? `Uploaded: ${fileName}` : 'Drag & drop PDF or click to upload'}
             </p>
-          </div>
-
-          <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-            <input
-              type="checkbox"
-              id="subscription"
-              checked={createSubscription}
-              onChange={(e) => setCreateSubscription(e.target.checked)}
-              className="w-5 h-5 text-[#1ABC9C] border-gray-300 rounded focus:ring-[#1ABC9C]"
-            />
-            <label htmlFor="subscription">Create subscription for updates</label>
           </div>
 
           <input
@@ -155,21 +141,30 @@ export function UploadCard() {
               {isUploading ? (
                 <span className="inline-flex items-center justify-center w-full">
                   <Loader2 size={18} className="animate-spin mr-2" />
-                  Uploading...
+                  Extracting text & analyzing…
                 </span>
-              ) : isUploaded ? 'Upload Completed' : 'Upload research paper'}
+              ) : isUploaded ? 'Upload Completed ✓' : 'Upload research paper'}
             </button>
             
             {isUploaded && (
-              <button
-                onClick={() => {
-                  setIsUploaded(false);
-                  setFileName('');
-                }}
-                className="w-full px-4 py-2 text-sm text-[#1F3A93] border border-[#1F3A93] rounded-lg hover:bg-[#1F3A93] hover:text-white transition-colors"
-              >
-                Upload Another Paper
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleOpenPaper}
+                  className="flex-1 px-4 py-2 text-sm bg-[#1F3A93] text-white rounded-lg hover:bg-[#1a2f7a] transition-colors font-medium"
+                >
+                  Chat with Paper →
+                </button>
+                <button
+                  onClick={() => {
+                    setIsUploaded(false);
+                    setFileName('');
+                    setLastUploadedPaper(null);
+                  }}
+                  className="flex-1 px-4 py-2 text-sm text-[#1F3A93] border border-[#1F3A93] rounded-lg hover:bg-[#1F3A93] hover:text-white transition-colors"
+                >
+                  Upload Another
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -187,18 +182,12 @@ export function UploadCard() {
               <h4 className="font-semibold text-[#222222] mb-2">
                 {lastUploadedPaper.title}
               </h4>
-              <p className="text-gray-600 text-sm mb-3">
-                By: {lastUploadedPaper.authors.join(', ')}
+              <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                {lastUploadedPaper.abstract}
               </p>
               <div className="flex flex-wrap gap-2 text-xs">
-                <span className="bg-[#EEF6F4] text-[#1ABC9C] px-3 py-1 rounded-full border border-[#1ABC9C]">
-                  Subscription: {lastUploadedPaper.subscription_enabled ? 'ON' : 'OFF'}
-                </span>
                 <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
-                  Pages: {lastUploadedPaper.pages}
-                </span>
-                <span className="bg-[#1ABC9C] text-white px-3 py-1 rounded-full animate-pulse">
-                  {lastUploadedPaper.updates_count} updates
+                  {lastUploadedPaper.pages} pages
                 </span>
               </div>
             </div>

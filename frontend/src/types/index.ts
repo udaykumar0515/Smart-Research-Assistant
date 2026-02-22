@@ -25,7 +25,6 @@ export interface Answer {
   answer: string;
   citations: Citation[];
   used_llm: boolean;
-  credits_used: number;
 }
 
 export interface NewsItem {
@@ -45,11 +44,4 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   answer?: Answer;
-}
-
-export interface UsageEntry {
-  timestamp: string;
-  event: string;
-  credits_used: number;
-  details: string;
 }

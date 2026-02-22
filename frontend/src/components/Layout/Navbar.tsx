@@ -1,6 +1,4 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAppContext } from '../../context/AppContext';
 
 export function Navbar() {
@@ -13,21 +11,18 @@ export function Navbar() {
           <span className="text-2xl font-semibold">Smart Research Assistant</span>
         </Link>
         
-        <div className="flex items-center space-x-4">
-          <motion.div
-            key={state.credits}
-            initial={{ scale: 1.1 }}
-            animate={{ scale: 1 }}
-            className="bg-[#EEF6F4] text-[#1ABC9C] px-4 py-2 rounded-full border border-[#1ABC9C] font-medium text-sm"
-          >
-            Credits: {state.credits}
-          </motion.div>
-          <Link
-            to="/usage"
-            className="text-[#1F3A93] hover:text-[#1ABC9C] font-medium transition-colors text-sm"
-          >
-            Usage
-          </Link>
+        <div className="flex items-center space-x-6">
+          {state.papers.length > 0 && (
+            <Link
+              to="/dashboard"
+              className="text-[#1F3A93] hover:text-[#1ABC9C] font-medium transition-colors text-sm"
+            >
+              Dashboard
+            </Link>
+          )}
+          <div className="bg-[#EEF6F4] text-[#1ABC9C] px-4 py-2 rounded-full border border-[#1ABC9C] font-medium text-sm">
+            {state.papers.length} Paper{state.papers.length !== 1 ? 's' : ''}
+          </div>
         </div>
       </div>
     </nav>

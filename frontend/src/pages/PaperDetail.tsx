@@ -20,10 +20,15 @@ export function PaperDetail() {
   const [currentPaperId, setCurrentPaperId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const chatAbortRef = useRef<AbortController | null>(null);
-  const updatesAbortRef = useRef<AbortController | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   const paper = state.papers.find(p => p.paper_id === paperId);
   const selectedPapers = state.papers.filter(p => state.selectedPaperIds.includes(p.paper_id));
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
     if (paper && paperId !== currentPaperId) {
@@ -49,50 +54,6 @@ export function PaperDetail() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showPaperSelector]);
-
-  // Updates polling
-  useEffect(() => {
-    if (!paper || !paper.subscription_enabled) return;
-
-    const interval = setInterval(() => {
-      updatesAbortRef.current?.abort();
-      const controller = new AbortController();
-      updatesAbortRef.current = controller;
-
-      backendApi.getPaperUpdates(paper.paper_id, controller.signal)
-        .then((res) => {
-          const existingIds = new Set((paper.updates ?? []).map(u => u.id));
-          const incoming = res.updates ?? [];
-          const incomingIds = new Set(incoming.map(u => u.id));
-
-          const idsChanged = existingIds.size !== incomingIds.size || [...incomingIds].some(id => !existingIds.has(id));
-
-          if (idsChanged) {
-            dispatch({
-              type: 'UPDATE_PAPER_UPDATES',
-              payload: {
-                paperId: paper.paper_id,
-                updates: incoming
-              }
-            });
-
-            const hasNew = incoming.some(u => !existingIds.has(u.id));
-            if (hasNew) {
-              toast.success('New update found!');
-            }
-          }
-        })
-        .catch((err) => {
-          if (err?.name === 'AbortError') return;
-          console.error('Failed to fetch updates:', err);
-        });
-    }, 15000);
-
-    return () => {
-      clearInterval(interval);
-      updatesAbortRef.current?.abort();
-    };
-  }, [paper, dispatch]);
 
   const handlePaperSelect = (selectedPaperId: string) => {
     if (multiPaperMode) {
@@ -155,21 +116,6 @@ export function PaperDetail() {
           ? { ...m, content: '', answer: res.answer }
           : m
       ));
-
-      dispatch({
-        type: 'ADD_USAGE_ENTRY',
-        payload: {
-          timestamp: new Date().toLocaleString(),
-          event: `Asked "${messageContent}"`,
-          credits_used: res.answer.credits_used,
-          details: mode === 'multi' ? 'Multi-paper' : (res.answer.type === 'synthesis' ? 'Synthesis' : 'Retrieval')
-        }
-      });
-
-      if (res.credits?.new_balance !== undefined) {
-        dispatch({ type: 'SET_CREDITS', payload: res.credits.new_balance });
-        localStorage.setItem('smart-research-credits', res.credits.new_balance.toString());
-      }
     } catch (err: unknown) {
       const e = err as { name?: string; message?: string };
       if (e?.name === 'AbortError') return;
@@ -190,6 +136,12 @@ export function PaperDetail() {
         <div className="text-center">
           <FileText size={48} className="mx-auto text-gray-400 mb-4" />
           <h2 className="text-2xl font-semibold text-[#222222] mb-2">Paper not found</h2>
+          <button
+            onClick={() => navigate('/')}
+            className="mt-4 text-[#1F3A93] hover:text-[#1ABC9C] font-medium"
+          >
+            ← Back to Home
+          </button>
         </div>
       </div>
     );
@@ -207,78 +159,82 @@ export function PaperDetail() {
               className="bg-white rounded-xl shadow-lg p-6 h-fit"
             >
               {/* Multi-Paper Mode Toggle */}
-              <div className="mb-4">
-                <button
-                  onClick={toggleMultiPaperMode}
-                  className={`w-full flex items-center justify-center space-x-2 p-3 rounded-lg transition-colors ${
-                    multiPaperMode 
-                      ? 'bg-[#1ABC9C] text-white' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <Users size={16} />
-                  <span className="text-sm font-medium">
-                    {multiPaperMode ? 'Multi-Paper Mode' : 'Single Paper Mode'}
-                  </span>
-                </button>
-              </div>
+              {state.papers.length > 1 && (
+                <div className="mb-4">
+                  <button
+                    onClick={toggleMultiPaperMode}
+                    className={`w-full flex items-center justify-center space-x-2 p-3 rounded-lg transition-colors ${
+                      multiPaperMode 
+                        ? 'bg-[#1ABC9C] text-white' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Users size={16} />
+                    <span className="text-sm font-medium">
+                      {multiPaperMode ? 'Multi-Paper Mode' : 'Single Paper Mode'}
+                    </span>
+                  </button>
+                </div>
+              )}
 
               {/* Paper Selector */}
-              <div className="mb-4">
-                <div className="relative paper-selector">
-                  <button
-                    onClick={() => setShowPaperSelector(!showPaperSelector)}
-                    className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="text-left flex-1 min-w-0">
-                      <div className="font-medium text-sm text-[#222222] truncate">
-                        {multiPaperMode 
-                          ? `${selectedPapers.length} paper${selectedPapers.length !== 1 ? 's' : ''} selected`
-                          : paper?.title || 'Select a paper'
-                        }
+              {state.papers.length > 1 && (
+                <div className="mb-4">
+                  <div className="relative paper-selector">
+                    <button
+                      onClick={() => setShowPaperSelector(!showPaperSelector)}
+                      className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="text-left flex-1 min-w-0">
+                        <div className="font-medium text-sm text-[#222222] truncate">
+                          {multiPaperMode 
+                            ? `${selectedPapers.length} paper${selectedPapers.length !== 1 ? 's' : ''} selected`
+                            : paper?.title || 'Select a paper'
+                          }
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {state.papers.length} paper{state.papers.length !== 1 ? 's' : ''} uploaded
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {state.papers.length} paper{state.papers.length !== 1 ? 's' : ''} uploaded
-                      </div>
-                    </div>
-                    <ChevronDown size={16} className="text-gray-400" />
-                  </button>
-                  
-                  {showPaperSelector && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
-                      {state.papers.map((p) => (
-                        <button
-                          key={p.paper_id}
-                          onClick={() => handlePaperSelect(p.paper_id)}
-                          className={`w-full text-left p-3 hover:bg-gray-50 transition-colors flex items-center space-x-2 ${
-                            multiPaperMode && state.selectedPaperIds.includes(p.paper_id)
-                              ? 'bg-[#EEF6F4] text-[#1ABC9C]'
-                              : !multiPaperMode && p.paper_id === paper?.paper_id
-                              ? 'bg-[#EEF6F4] text-[#1ABC9C]'
-                              : ''
-                          }`}
-                        >
-                          {multiPaperMode && (
-                            <div className="flex-shrink-0">
-                              {state.selectedPaperIds.includes(p.paper_id) ? (
-                                <Check size={16} className="text-[#1ABC9C]" />
-                              ) : (
-                                <div className="w-4 h-4 border border-gray-300 rounded" />
-                              )}
+                      <ChevronDown size={16} className="text-gray-400" />
+                    </button>
+                    
+                    {showPaperSelector && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+                        {state.papers.map((p) => (
+                          <button
+                            key={p.paper_id}
+                            onClick={() => handlePaperSelect(p.paper_id)}
+                            className={`w-full text-left p-3 hover:bg-gray-50 transition-colors flex items-center space-x-2 ${
+                              multiPaperMode && state.selectedPaperIds.includes(p.paper_id)
+                                ? 'bg-[#EEF6F4] text-[#1ABC9C]'
+                                : !multiPaperMode && p.paper_id === paper?.paper_id
+                                ? 'bg-[#EEF6F4] text-[#1ABC9C]'
+                                : ''
+                            }`}
+                          >
+                            {multiPaperMode && (
+                              <div className="flex-shrink-0">
+                                {state.selectedPaperIds.includes(p.paper_id) ? (
+                                  <Check size={16} className="text-[#1ABC9C]" />
+                                ) : (
+                                  <div className="w-4 h-4 border border-gray-300 rounded" />
+                                )}
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{p.title}</div>
+                              <div className="text-xs text-gray-500">{p.pages} pages</div>
                             </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">{p.title}</div>
-                            <div className="text-xs text-gray-500">{p.authors.join(', ')}</div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Selected Papers Display */}
+              {/* Selected Papers Display (multi-mode) */}
               {multiPaperMode && selectedPapers.length > 0 && (
                 <div className="mb-4">
                   <div className="text-xs text-gray-600 mb-2">Selected Papers:</div>
@@ -295,29 +251,18 @@ export function PaperDetail() {
               <h2 className="text-xl font-semibold text-[#222222] mb-3">
                 {paper.title}
               </h2>
-              <p className="text-gray-600 text-sm mb-4">
-                By: {paper.authors.join(', ')}
-              </p>
 
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-2">Abstract:</p>
-                <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-700 line-clamp-4">
+                <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-700 line-clamp-6">
                   {paper.abstract}
                 </div>
               </div>
 
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={paper.subscription_enabled}
-                    readOnly
-                    className="w-4 h-4 text-[#1ABC9C] border-gray-300 rounded focus:ring-[#1ABC9C]"
-                  />
-                  <label className="text-gray-600">Subscription: ON</label>
-                </div>
-                <div className="text-xs text-gray-500">
-                  Last checked: --
+              <div className="space-y-2 text-sm text-gray-600">
+                <div className="flex items-center justify-between">
+                  <span>Pages</span>
+                  <span className="font-medium text-[#222222]">{paper.pages}</span>
                 </div>
               </div>
             </motion.div>
@@ -330,21 +275,27 @@ export function PaperDetail() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-xl shadow-lg h-full flex flex-col"
             >
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[500px]">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[calc(100vh-16rem)]">
                 {messages.length === 0 ? (
                   <div className="text-center text-gray-500 mt-12">
                     <FileText size={32} className="mx-auto mb-3 opacity-50" />
-                    <p>
+                    <p className="text-lg font-medium mb-2">
                       {multiPaperMode 
-                        ? `Ask a question about ${selectedPapers.length} selected paper${selectedPapers.length !== 1 ? 's' : ''} to get started`
-                        : 'Ask a question about this paper to get started'
+                        ? `Ask about ${selectedPapers.length} selected paper${selectedPapers.length !== 1 ? 's' : ''}`
+                        : 'Ask a question about this paper'
                       }
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      e.g. "What are the key findings?" or "Summarize the methodology"
                     </p>
                   </div>
                 ) : (
-                  messages.map((message) => (
-                    <ChatMessage key={message.id} message={message} />
-                  ))
+                  <>
+                    {messages.map((message) => (
+                      <ChatMessage key={message.id} message={message} />
+                    ))}
+                    <div ref={chatEndRef} />
+                  </>
                 )}
               </div>
               <div className="p-6 border-t border-gray-200">
@@ -352,21 +303,21 @@ export function PaperDetail() {
                   onSendMessage={handleSendMessage}
                   placeholder={
                     multiPaperMode 
-                      ? `Ask a question about ${selectedPapers.length} selected paper${selectedPapers.length !== 1 ? 's' : ''}... (e.g., "Compare the methods in these papers")`
-                      : 'Ask a question about this paper… (e.g., "What is the abstract?")'
+                      ? `Ask about ${selectedPapers.length} paper${selectedPapers.length !== 1 ? 's' : ''}…`
+                      : 'Ask a question about this paper…'
                   }
                 />
-                {state.isProcessingCredits && (
+                {isSending && (
                   <div className="flex items-center justify-center mt-2 text-sm text-gray-500">
                     <Loader2 size={16} className="animate-spin mr-2" />
-                    Processing credits...
+                    Analyzing paper sections…
                   </div>
                 )}
               </div>
             </motion.div>
           </div>
 
-          {/* Right Panel - Updates (15%) */}
+          {/* Right Panel - Report & Info (15%) */}
           <div className="w-1/6">
             <motion.div
               initial={{ opacity: 0, x: 20 }}

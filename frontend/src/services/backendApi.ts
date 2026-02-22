@@ -14,35 +14,26 @@ export type ChatRequest = {
 
 export type ChatResponse = {
   answer: Answer;
-  credits?: {
-    deducted: number;
-    new_balance: number;
-    transaction_id?: string;
-  };
-};
-
-export type CreditsDeductRequest = {
-  amount: number;
-  reason: string;
-};
-
-export type CreditsPurchaseRequest = {
-  amount: number;
-};
-
-export type CreditsResponse = {
-  success: boolean;
-  newBalance: number;
-  transactionId?: string;
-  message?: string;
 };
 
 export const backendApi = {
+  listPapers: async (signal?: AbortSignal): Promise<{ papers: Paper[] }> => {
+    return apiJson<{ papers: Paper[] }>('/papers', { signal });
+  },
+
   uploadPaper: async (file: File, createSubscription: boolean, signal?: AbortSignal): Promise<UploadPaperResponse> => {
     const form = new FormData();
     form.append('file', file);
     form.append('create_subscription', String(createSubscription));
     return apiForm<UploadPaperResponse>('/papers/upload', form, { signal });
+  },
+
+  getPaperDetails: async (paperId: string, signal?: AbortSignal): Promise<Record<string, unknown>> => {
+    return apiJson<Record<string, unknown>>(`/papers/${encodeURIComponent(paperId)}`, { signal });
+  },
+
+  getPaperSections: async (paperId: string, signal?: AbortSignal): Promise<Record<string, unknown>> => {
+    return apiJson<Record<string, unknown>>(`/papers/${encodeURIComponent(paperId)}/sections`, { signal });
   },
 
   chat: async (req: ChatRequest, signal?: AbortSignal): Promise<ChatResponse> => {
@@ -66,12 +57,4 @@ export const backendApi = {
       { method: 'POST', body: {}, signal }
     );
   },
-
-  deductCredits: async (req: CreditsDeductRequest, signal?: AbortSignal): Promise<CreditsResponse> => {
-    return apiJson<CreditsResponse>('/credits/deduct', { method: 'POST', body: req, signal });
-  },
-
-  purchaseCredits: async (req: CreditsPurchaseRequest, signal?: AbortSignal): Promise<CreditsResponse> => {
-    return apiJson<CreditsResponse>('/credits/purchase', { method: 'POST', body: req, signal });
-  }
 };

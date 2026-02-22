@@ -14,7 +14,7 @@ const trimSlash = (s: string) => s.replace(/\/+$/, '');
 
 export const API_BASE_URL: string = (() => {
   const env = import.meta.env.VITE_API_BASE_URL as string | undefined;
-  return env ? trimSlash(env) : '';
+  return env ? trimSlash(env) : 'http://localhost:8000/api';
 })();
 
 const getErrorMessage = (payload: unknown, status: number) => {
