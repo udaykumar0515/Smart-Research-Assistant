@@ -149,10 +149,10 @@ export function PaperDetail() {
 
   return (
     <div className="min-h-screen bg-[#F6F7FB]">
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="flex gap-5 min-h-[calc(100vh-8rem)]">
+      <div className="w-full px-8 py-6">
+        <div className="flex gap-4 min-h-[calc(100vh-8rem)]">
           {/* Left Panel - Paper Metadata */}
-          <div className="w-[22%] flex-shrink-0">
+          <div className="w-[260px] flex-shrink-0">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -318,7 +318,7 @@ export function PaperDetail() {
           </div>
 
           {/* Right Panel - Paper Tools & Report */}
-          <div className="w-[26%] flex-shrink-0">
+          <div className="w-[375px] flex-shrink-0">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
