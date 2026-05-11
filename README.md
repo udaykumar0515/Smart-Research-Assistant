@@ -145,7 +145,7 @@ An AI-powered research paper analysis platform that transforms how researchers i
 ![Updates Panel](screenshots/06-updates-panel.png)
 **Updates Panel** - Real-time updates section showing new research, summarization buttons, and credit costs
 
-## �️ **Architecture**
+## **Architecture**
 
 ### **Backend (FastAPI)**
 - **PDF Processing**: Hybrid extraction (PyMuPDF + Google Document AI)
@@ -159,7 +159,15 @@ An AI-powered research paper analysis platform that transforms how researchers i
 - **UI Components**: Framer Motion animations, Lucide icons
 - **Real-time**: WebSocket-ready for live updates
 
-## 📄 **License**
+## � **Team - Core Coders**
+
+- **H. UdayKumar** - Lead Developer & Project Manager ([GitHub](https://github.com/udaykumar0515)) | udaykumarhaibathi@gmail.com
+- **P. Venkata Teja** - Frontend Developer ([GitHub](https://github.com/VenkataTejaP9587)) | venkatatejapatnam@gmail.com
+- **S. Sairam** - UI/UX Designer ([GitHub](https://github.com/sairamshivva)) | sairamshivva@gmail.com
+- **K. Bhanu** - Research & Support ([GitHub](https://github.com/BUNNY5S)) | bhanubunny2030@gmail.com
+- **M. Madhan** - Research & Support ([GitHub](https://github.com/mekalamadhan8-bit))| mekalamadhan8@gmail.com
+
+## �📄 **License**
 
 This project is licensed under the MIT License.
 
