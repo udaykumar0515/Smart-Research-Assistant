@@ -1,10 +1,6 @@
 # Smart Research Assistant 🧠📚
 
-> **HackWithHyderabad Hackathon 2025 Submission**
-
-A revolutionary AI-powered research paper analysis platform that transforms how researchers interact with academic literature. Upload multiple papers, ask intelligent questions, and get comprehensive answers with proper citations and real-time updates.
-
-> **💡 Demo Note: This interactive demo showcases the complete user experience with simulated data to demonstrate the platform's capabilities.**
+An AI-powered research paper analysis platform that transforms how researchers interact with academic literature. Upload multiple papers, ask intelligent questions, and get comprehensive answers with proper citations and real-time updates.
 
 ## 🚀 **What Makes This Special?**
 
@@ -62,13 +58,14 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 - **Package Manager**: npm
 - **Data**: Demo data simulation for interactive experience
 
-## 🚀 **Getting Started**
+## 🚀 **Installation**
 
 ### **Prerequisites**
-- Node.js 16+ (for running the development server)
-- npm (included with Node.js)
+- Node.js 16+ 
+- Python 3.8+
+- API keys configured in `.env` file
 
-### **Installation**
+### **Setup**
 
 1. **Clone the repository**
    ```bash
@@ -76,21 +73,23 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
    cd Smart-Research-Assistant
    ```
 
-2. **Install dependencies**
+2. **Backend Setup**
+   ```bash
+   pip install -r backend/requirements.txt
+   # Configure .env with your API keys
+   uvicorn backend.main:app --port 8000 --reload
+   ```
+
+3. **Frontend Setup**
    ```bash
    cd frontend
    npm install
-   ```
-
-3. **Start development server**
-   ```bash
    npm run dev
    ```
 
-4. **Open in browser**
-   ```
-   http://localhost:5173
-   ```
+4. **Access the application**
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:8000
 
 ## 📱 **How to Use**
 
@@ -146,55 +145,24 @@ A revolutionary AI-powered research paper analysis platform that transforms how 
 ![Updates Panel](screenshots/06-updates-panel.png)
 **Updates Panel** - Real-time updates section showing new research, summarization buttons, and credit costs
 
-## 🏆 **HackWithHyderabad Hackathon**
+## �️ **Architecture**
 
-This project was developed for **HackWithHyderabad 2025** by **Core Coders**, focusing on:
+### **Backend (FastAPI)**
+- **PDF Processing**: Hybrid extraction (PyMuPDF + Google Document AI)
+- **AI Pipeline**: Two-stage LLM for cost-efficient analysis
+- **Storage**: SQLite with JSON serialization (Firestore-ready)
+- **API**: 11 RESTful endpoints with comprehensive error handling
 
-- **Innovation**: Revolutionary approach to research paper analysis
-- **User Experience**: Intuitive interface for non-technical users
-- **Scalability**: Multi-paper support for comprehensive research
-- **AI Integration**: Smart responses with proper citations
-- **Real-time Features**: Live updates and trend monitoring
-
-## 🔮 **Future Enhancements**
-
-### **Phase 1: Backend Integration**
-- [ ] Real PDF processing and text extraction
-- [ ] AI model integration for actual paper analysis
-- [ ] User authentication and data persistence
-- [ ] Real-time news API integration
-
-### **Phase 2: Advanced Features**
-- [ ] Paper recommendation system
-- [ ] Collaborative research workspaces
-- [ ] Export functionality (PDF reports)
-- [ ] Advanced search and filtering
-
-### **Phase 3: Enterprise Features**
-- [ ] Team collaboration tools
-- [ ] Institutional subscriptions
-- [ ] Advanced analytics dashboard
-- [ ] API for third-party integrations
+### **Frontend (React)**
+- **Modern Stack**: React 18 + TypeScript + Tailwind CSS
+- **State Management**: React Context API
+- **UI Components**: Framer Motion animations, Lucide icons
+- **Real-time**: WebSocket-ready for live updates
 
 ## 📄 **License**
 
-This project is licensed under the MIT License 
-
-## 👥 **Team - Core Coders**
-
-- **H. UdayKumar** - Lead Developer & Project Manager ([GitHub](https://github.com/udaykumar0515)) | udaykumarhaibathi@gmail.com
-- **P. Venkata Teja** - Frontend Developer ([GitHub](https://github.com/VenkataTejaP9587)) | venkatatejapatnam@gmail.com
-- **S. Sairam** - UI/UX Designer ([GitHub](https://github.com/sairamshivva)) | sairamshivva@gmail.com
-- **K. Bhanu** - Research & Support ([GitHub](https://github.com/BUNNY5S)) | bhanubunny2030@gmail.com
-- **M. Madhan** - Research & Support ([GitHub](https://github.com/mekalamadhan8-bit))| mekalamadhan8@gmail.com
-
-## 📞 **Contact**
-
-- **GitHub**: [@udaykumar0515](https://github.com/udaykumar0515)
-- **Project**: [Smart Research Assistant](https://github.com/udaykumar0515/Smart-Research-Assistant)
+This project is licensed under the MIT License.
 
 ---
 
-**Built for the research community**
-
-*Interactive demo showcasing intelligent AI assistance for academic research*
+**Built with ❤️ for the research community**
